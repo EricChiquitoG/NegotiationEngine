@@ -1,17 +1,21 @@
 from datetime import datetime
 
 from bson.json_util import dumps
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, jsonify
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from flask_socketio import SocketIO, join_room, leave_room
 from pymongo.errors import DuplicateKeyError
+from string import Template
+from geopy.distance import geodesic
+import ast
 
-from db import add_room_members,update_bid, get_closing,get_hb,get_hbidder, get_messages, get_room, get_room_members, get_rooms_for_user, get_user, is_room_admin, is_room_member, remove_room_members, save_message, save_room, save_user, update_room
+
+from db import get_template,get_t,get_distance,get_room_admin,save_param,add_room_member,add_room_members,update_bid, get_closing,get_hb,get_sign,get_hbidder, get_messages, get_room, get_room_members, get_rooms_for_user, get_user, is_room_admin, is_room_member, remove_room_members, save_message, save_room, save_user, update_room
 
 app = Flask(__name__)
 app.secret_key = "sfdjkafnk"
 
-socketio = SocketIO(app)
+socketio = SocketIO(app,cors_allowed_origins="*")
 login_manager = LoginManager()
 login_manager.login_view = 'login'
 login_manager.init_app(app)
@@ -28,7 +32,7 @@ def home():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
-        return redirect(url_for('home'))
+        return {"message":"The user {} is already authenticated".format(current_user)},200
 
     message = ''
     if request.method == 'POST':
@@ -38,11 +42,10 @@ def login():
 
         if user and user.check_password(password_input):
             login_user(user)
-            return redirect(url_for('home'))
+            return {"message":"User {} has been authenticated".format(user)},200
         else:
             message = 'Failed to login!'
-    return render_template('login.html', message=message)
-
+    return message,400
 
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
@@ -54,8 +57,10 @@ def signup():
         username = request.form.get('username')
         email = request.form.get('email')
         password = request.form.get('password')
+        sign=request.form.get('sign')
+        location=request.form.get('sign')
         try:
-            save_user(username, email, password)
+            save_user(username, email, password,sign,location)
             return redirect(url_for('login'))
         except DuplicateKeyError:
             message = "User already exists!"
@@ -72,23 +77,33 @@ def logout():
 @app.route('/create-room/', methods=['GET', 'POST'])
 @login_required
 def create_room():
-    message = ''
     if request.method == 'POST':
         room_name = request.form.get('room_name')
         highest_bid=request.form.get('highest_bid')
         highest_bidder=''
+        auction_type=request.form.get('auction_type')
         closing_time=request.form.get('closing_time')
+        reference_sector=request.form.get('reference_sector')
+        reference_type=request.form.get('reference_type')
+        quantity=request.form.get('quantity')
+        articleno=request.form.get('articleno')
+        sellersign=get_sign(current_user.username)
+        buyersign=''
+        templatetype=request.form.get('templatetype')
         usernames = [username.strip() for username in request.form.get('members').split(',')]
 
         if len(room_name) and len(usernames):
-            room_id = save_room(room_name, current_user.username,highest_bid,highest_bidder,closing_time)
+                      
+            room_id = save_room(room_name, current_user.username,auction_type,highest_bid,highest_bidder,closing_time,sellersign,buyersign,templatetype)
+            save_param(room_id,room_name,reference_sector,reference_type,quantity,articleno)
             if current_user.username in usernames:
                 usernames.remove(current_user.username)
-            add_room_members(room_id, room_name, usernames, current_user.username)
-            return redirect(url_for('view_room', room_id=room_id))
+            print(len(usernames))
+            if len(usernames)>1:
+                add_room_members(room_id, room_name, usernames, current_user.username)
+            return {"message":"The room {} has been created".format(str(room_name))},200
         else:
-            message = "Failed to create room"
-    return render_template('create_room.html', message=message)
+            return {"message":"Unable to create room"},400
 
 
 @app.route('/rooms/<room_id>/edit', methods=['GET', 'POST'])
@@ -117,8 +132,23 @@ def edit_room(room_id):
     else:
         return "Room not found", 404
 
+@app.route('/rooms/<room_id>/join', methods=['GET'])
+@login_required
+def join_room(room_id):
+    room = get_room(room_id)
+    room_name=room['name']
+    existing_room_members = [member['_id']['username'] for member in get_room_members(room_id)]
+    if request.method == 'GET':
+        new_members = current_user.username
+        if new_members in list(set(existing_room_members)):
+            return {"message":"You are already in a room"},400
+        add_room_member(room_id, room_name, new_members, current_user.username)
 
-@app.route('/rooms/<room_id>/')
+        
+    return {"message":"You have joined the room {}".format(str(room_name))},200
+
+
+@app.route('/roomss/<room_id>/')
 @login_required
 def view_room(room_id):
     room = get_room(room_id)
@@ -133,45 +163,101 @@ def view_room(room_id):
     else:
         return "Room not found", 404
 
-
-
-@socketio.on('send_message')
-def handle_send_message_event(data):
-    closing_time=get_closing(data['room'])
-    print(closing_time)
-    print(get_closing(data['room'])>datetime.now())
-    if(get_closing(data['room'])>datetime.now()):
-        if (data['message'].isdecimal()):
-            app.logger.info("{} has summited a new bid to the room {}: {}".format(data['username'],
-                                                                        data['room'],
-                                                                        data['message']))
-            data['created_at'] = datetime.now().strftime("%d %b, %H:%M")
-            save_message(data['room'], data['message'], data['username'])
-            socketio.emit('receive_message', data, room=data['room'])
-            print(data['message'],get_hb(data['room']))
-            print(data['message']>get_hb(data['room']))
-            if (int(data['message'])>int(get_hb(data['room']))):
-                update_bid(data['room'],data['message'],data['username'] )
-                print('Bid is higher')
-        else: app.logger.info("Invalid bid, not number")
+@app.route('/ended/<room_id>/', methods=['GET','POST'])
+@login_required
+def ended(room_id):
+    room = get_room(room_id)
+    rn=room['name']
+    highest_bid=get_hb(room_id)
+    highest_bidder=get_hbidder(room_id)
+    closing_time=get_closing(room_id)
+    room_members = get_room_members(room_id)
+    messages = get_messages(room_id)
+    created_at=datetime.now().strftime("%d %b, %H:%M")
+    template=Template(get_t(get_template(room_id)))
+    d=dict(buyer=highest_bidder,quantity='function for quantity', item='function for article',ammount=highest_bid,date=datetime.date.today(),owner='function for owner',buyersign='function buyer sign',sellersign='function for seller sign')
+    wm=template.safe_substitute(d)
+    if room and is_room_member(room_id, current_user.username):
+        
+        ## The event for the timeout message could go here
+        
+        if (closing_time)>datetime.now():
+            print("Acessing finished bid")
+            return render_template('auction_ended.html', username=current_user.username, room=rn, room_members=room_members,
+                               messages=messages,highest_bid=highest_bid,highest_bidder=highest_bidder,created_at=created_at,template=wm)
     else:
-        socketio.emit('auction_end_announcement', data, room=data['room'])
-        app.logger.info("Auction time has ended")
-    
+        return "Room not found", 404
+
+@app.route('/rooms/<room_id>/bids', methods=['GET'])
+@login_required
+def messages(room_id):
+    room = get_room(room_id)
+    rn=room['name']
+    highest_bid=get_hb(room_id)
+    highest_bidder=get_hbidder(room_id)
+    closing_time=get_closing(room_id)
+    room_members = get_room_members(room_id)
+    messages = get_messages(room_id)
+    created_at=datetime.now().strftime("%d %b, %H:%M:%S")
+    if room and is_room_member(room_id, current_user.username):
+        
+        ## Here the bids from all users are shown to the user 
+        keys = ['sender','text', 'created_at','distance']
+        d=[]
+        for message in messages:
+            filtered_d = dict((k, message[k]) for k in keys if k in message)
+            d.append(filtered_d)
+
+        body = {"Bids": d}
+
+        return jsonify(body),200
 
 
-@socketio.on('join_room')
-def handle_join_room_event(data):
-    app.logger.info("{} has joined the room {}".format(data['username'], data['room']))
-    join_room(data['room'])
-    socketio.emit('join_room_announcement', data, room=data['room'])
+    else:
+        return "Room not found", 404
 
 
-@socketio.on('leave_room')
-def handle_leave_room_event(data):
-    app.logger.info("{} has left the room {}".format(data['username'], data['room']))
-    leave_room(data['room'])
-    socketio.emit('leave_room_announcement', data, room=data['room'])
+@app.route('/rooms/<room_id>/', methods=['GET','POST'])
+@login_required
+def chat(room_id):
+    room = get_room(room_id)
+    rn=room['name']
+    closing_time=get_closing(room_id)
+    if room and is_room_member(room_id, current_user.username):
+        
+        ## The event for the timeout message could go here
+        
+        if request.method=='POST':
+            bid=request.form.get("message_input")
+            if (closing_time)>datetime.now():
+                print(is_room_admin(room_id,current_user.username))
+                if(is_room_admin(room_id,current_user.username)==0):
+                    app.logger.info("{} has summited a new bid to the room {}: {}".format(current_user.username,
+                                                                            rn,
+                                                                            bid))
+                    sign=get_sign(current_user.username)
+                    ## Calculation of distance between users done at every bid
+                    distance=geodesic(ast.literal_eval(get_distance(current_user.username)),ast.literal_eval(get_distance(get_room_admin(rn)))).km
+                    print(distance)
+                    #
+                    save_message(str(room['_id']),bid,current_user.username,sign,distance)
+                    print(get_hb(room_id))
+                    print(bid)
+                    if (int(bid)>int(get_hb(room_id))):
+                        update_bid(room['_id'],bid,current_user.username,sign)
+                        print('Bid is higher')                     
+                else:
+                    app.logger.info("Cannot bid if you are Admin")  
+                    return{"message":"You cannot issue bids as room admin"},400                          
+            else:
+                app.logger.info("Auction time has ended")
+                return {"message":"The auction {} has already ended".format(str(rn))},400
+            return {"message":"You have issued the bid {}".format(str(bid))},200
+
+
+    else:
+        return "Room not found", 404
+
 
 
 @login_manager.user_loader
