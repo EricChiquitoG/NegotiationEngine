@@ -10,7 +10,7 @@ from geopy.distance import geodesic
 import ast
 
 
-from db import get_template,get_t,get_distance,get_room_admin,save_param,add_room_member,add_room_members,update_bid, get_closing,get_hb,get_sign,get_hbidder, get_messages, get_room, get_room_members, get_rooms_for_user, get_user, is_room_admin, is_room_member, remove_room_members, save_message, save_room, save_user, update_room
+from db import find_rooms,ended,get_template,get_t,get_distance,get_room_admin,save_param,add_room_member,add_room_members,update_bid, get_closing,get_hb,get_sign,get_hbidder, get_messages, get_room, get_room_members, get_rooms_for_user, get_user, is_room_admin, is_room_member, remove_room_members, save_message, save_room, save_user, update_room
 
 app = Flask(__name__)
 app.secret_key = "sfdjkafnk"
@@ -82,7 +82,7 @@ def create_room():
         highest_bid=request.form.get('highest_bid')
         highest_bidder=''
         auction_type=request.form.get('auction_type')
-        closing_time=request.form.get('closing_time')
+        closing_time=datetime.strptime(request.form.get('closing_time'), '%Y-%m-%dT%H:%M:%S')
         reference_sector=request.form.get('reference_sector')
         reference_type=request.form.get('reference_type')
         quantity=request.form.get('quantity')
@@ -163,42 +163,14 @@ def view_room(room_id):
     else:
         return "Room not found", 404
 
-@app.route('/ended/<room_id>/', methods=['GET','POST'])
-@login_required
-def ended(room_id):
-    room = get_room(room_id)
-    rn=room['name']
-    highest_bid=get_hb(room_id)
-    highest_bidder=get_hbidder(room_id)
-    closing_time=get_closing(room_id)
-    room_members = get_room_members(room_id)
-    messages = get_messages(room_id)
-    created_at=datetime.now().strftime("%d %b, %H:%M")
-    template=Template(get_t(get_template(room_id)))
-    d=dict(buyer=highest_bidder,quantity='function for quantity', item='function for article',ammount=highest_bid,date=datetime.date.today(),owner='function for owner',buyersign='function buyer sign',sellersign='function for seller sign')
-    wm=template.safe_substitute(d)
-    if room and is_room_member(room_id, current_user.username):
-        
-        ## The event for the timeout message could go here
-        
-        if (closing_time)>datetime.now():
-            print("Acessing finished bid")
-            return render_template('auction_ended.html', username=current_user.username, room=rn, room_members=room_members,
-                               messages=messages,highest_bid=highest_bid,highest_bidder=highest_bidder,created_at=created_at,template=wm)
-    else:
-        return "Room not found", 404
+
 
 @app.route('/rooms/<room_id>/bids', methods=['GET'])
 @login_required
 def messages(room_id):
     room = get_room(room_id)
     rn=room['name']
-    highest_bid=get_hb(room_id)
-    highest_bidder=get_hbidder(room_id)
-    closing_time=get_closing(room_id)
-    room_members = get_room_members(room_id)
     messages = get_messages(room_id)
-    created_at=datetime.now().strftime("%d %b, %H:%M:%S")
     if room and is_room_member(room_id, current_user.username):
         
         ## Here the bids from all users are shown to the user 
@@ -241,8 +213,6 @@ def chat(room_id):
                     print(distance)
                     #
                     save_message(str(room['_id']),bid,current_user.username,sign,distance)
-                    print(get_hb(room_id))
-                    print(bid)
                     if (int(bid)>int(get_hb(room_id))):
                         update_bid(room['_id'],bid,current_user.username,sign)
                         print('Bid is higher')                     
@@ -253,10 +223,42 @@ def chat(room_id):
                 app.logger.info("Auction time has ended")
                 return {"message":"The auction {} has already ended".format(str(rn))},400
             return {"message":"You have issued the bid {}".format(str(bid))},200
+        elif request.method=='GET':
+            messages = get_messages(room_id)
+            if room and is_room_member(room_id, current_user.username):
+                
+                ## Here the bids from all users are shown to the user 
+                keys = ['sender','text', 'created_at','distance']
+                d=[]
+                for message in messages:
+                    filtered_d = dict((k, message[k]) for k in keys if k in message)
+                    d.append(filtered_d)
 
+                body = {"Bids": d}
+                if (closing_time)<datetime.now():
+                    response={'contract':ended(room_id),'Bids':d}
+                    print(is_room_member(room_id, current_user.username))
+                    print(get_room_members(room_id))
+                    return jsonify(response),200
+                return jsonify(body),200
 
     else:
-        return "Room not found", 404
+        return "Room not found or user is not authenticated", 404
+
+
+@app.route('/rooms/', methods=['GET'])
+@login_required
+def query():
+    if request.method=='GET':
+        room_name=request.form.get("room_name")
+        reference_sector=request.form.get("reference_sector")
+        reference_type=request.form.get("reference_type")
+        ongoing=request.form.get("ongoing")
+        auctions=find_rooms(room_name,reference_sector,reference_type,ongoing)
+        print(auctions)
+        return auctions,200
+
+
 
 
 

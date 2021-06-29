@@ -6,7 +6,9 @@ from werkzeug.security import generate_password_hash
 import uuid
 import hashlib
 from user import User
+from string import Template
 from geopy.geocoders import Nominatim
+import json
 
 
 client = MongoClient("mongodb+srv://EricTest:test@cluster0.ozw3z.mongodb.net/myFirstDatabase?retryWrites=true&w=majority")
@@ -18,6 +20,13 @@ room_members_collection = chat_db.get_collection("room_members")
 messages_collection = chat_db.get_collection("messages")
 templates_collection=chat_db.get_collection("templates")
 room_details=chat_db.get_collection("room_details")
+
+class JSONEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, ObjectId) or isinstance(o, datetime):
+            return str(o)
+        return json.JSONEncoder.default(self, o)
+
 
 def add_template():
     temp_id=1
@@ -42,6 +51,14 @@ def get_sign(username):
     user_data = users_collection.find_one({'_id': username})
     return user_data['sign']
 
+def find_rooms(room_name,reference_sector,reference_type,ongoing):
+    filtro={}
+    if room_name is not None: filtro['room_name'] = room_name
+    if reference_sector is not None: filtro['reference_sector'] = reference_sector
+    if reference_type is not None: filtro['reference_type'] = reference_type
+    if ongoing == 'True': filtro['closing_time'] = {'$gte' : datetime.now() }
+    auctions=list(room_details.find(filtro))
+    return(JSONEncoder().encode(auctions))
 
 def save_room(room_name, created_by,auction_type, highest_bid,highest_bidder,closing_time,sellersign,buyersign,templatetype):
     room_id = rooms_collection.insert_one(
@@ -50,7 +67,8 @@ def save_room(room_name, created_by,auction_type, highest_bid,highest_bidder,clo
     return room_id
 
 def save_param(room_id,room_name,reference_sector,reference_type, quantity, articleno):
-    room_details.insert_one({'room_id': room_id,'room_name':room_name, 'reference_sector':reference_sector,'reference_type':reference_type,'quantity':quantity,'articleno':articleno})
+    room=rooms_collection.find_one({'_id': ObjectId(room_id)})
+    room_details.insert_one({'_id': ObjectId(room_id),'room_name':room_name,'created_at':room['created_at'],'closing_time':room['closing_time'], 'reference_sector':reference_sector,'reference_type':reference_type,'quantity':quantity,'articleno':articleno})
 
 def update_room(room_id, room_name):
     rooms_collection.update_one({'_id': ObjectId(room_id)}, {'$set': {'name': room_name}})
@@ -72,11 +90,7 @@ def add_room_members(room_id, room_name, usernames, added_by):
         [{'_id': {'room_id': ObjectId(room_id), 'username': username}, 'room_name': room_name, 'added_by': added_by,
           'added_at': datetime.now(), 'is_room_admin': False} for username in usernames])
 
-"""           
-def add_room_member(room_id, room_name, usernames, added_by):
-    room_members_collection.insert_one(
-        {'_id': {'room_id': ObjectId(room_id), 'username': usernames}, 'room_name': room_name, 'added_by': added_by,
-          'added_at': datetime.now(), 'is_room_admin': False}) """
+
 
 
 def remove_room_members(room_id, usernames):
@@ -125,7 +139,8 @@ def get_hbidder(room_id):   #Custom function that gets the highest bid value for
 
 def get_template(room_id):
     hb=rooms_collection.find_one({'_id': ObjectId(room_id)})
-    valor=hb['templatetype']
+    ph=templates_collection.find_one({'temp_type': hb['templatetype']})
+    valor=ph['template']
     return valor
 
 
@@ -136,8 +151,8 @@ def get_t(temp_type):
 
 def get_closing(room_id):   #Custom function that gets the highest bid value for a particular auction entry
     hb=rooms_collection.find_one({'_id': ObjectId(room_id)})
-    valor=hb['closing_time']
-    valort=datetime.strptime(valor, '%Y-%m-%dT%H:%M:%S')
+    valort=hb['closing_time']
+    #valort=datetime.strptime(valor, '%Y-%m-%dT%H:%M:%S')
 
     return valort
 
@@ -153,4 +168,15 @@ def get_messages(room_id, page=0):
     for message in messages:
         message['created_at'] = message['created_at'].strftime("%d %b, %H:%M:%S")
     return messages
+
+
+def ended(room_id):
+    highest_bid=get_hb(room_id)
+    highest_bidder=get_hbidder(room_id)
+    template=Template(get_template(room_id))
+    room=rooms_collection.find_one({'_id': ObjectId(room_id)})
+    room_d=room_details.find_one({'room_id': ObjectId(room_id)})
+    d=dict(buyer=highest_bidder,quantity=room_d['quantity'], item=room_d['articleno'],ammount=highest_bid,date=room['closing_time'],owner=room['created_by'],buyersign=room['buyersign'],sellersign=room['sellersign'])
+    signed_c=template.safe_substitute(d)
+    return(signed_c)
 
