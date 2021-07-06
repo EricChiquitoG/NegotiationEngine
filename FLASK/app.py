@@ -8,9 +8,10 @@ from pymongo.errors import DuplicateKeyError
 from string import Template
 from geopy.distance import geodesic
 import ast
+import json
 
 
-from db import find_rooms,ended,get_template,get_t,get_distance,get_room_admin,save_param,add_room_member,add_room_members,update_bid, get_closing,get_hb,get_sign,get_hbidder, get_messages, get_room, get_room_members, get_rooms_for_user, get_user, is_room_admin, is_room_member, remove_room_members, save_message, save_room, save_user, update_room
+from db import get_bidders,find_rooms,distance_calc,ended,get_template,get_t,get_distance,get_room_admin,save_param,add_room_member,add_room_members,update_bid, get_closing,get_hb,get_sign,get_hbidder, get_messages, get_room, get_room_members, get_rooms_for_user, get_user, is_room_admin, is_room_member, remove_room_members, save_message, save_room, save_user, update_room
 
 app = Flask(__name__)
 app.secret_key = "sfdjkafnk"
@@ -71,7 +72,7 @@ def signup():
 @login_required
 def logout():
     logout_user()
-    return redirect(url_for('home'))
+    return 'the user has logged out',200
 
 
 @app.route('/create-room/', methods=['GET', 'POST'])
@@ -95,7 +96,7 @@ def create_room():
         if len(room_name) and len(usernames):
                       
             room_id = save_room(room_name, current_user.username,auction_type,highest_bid,highest_bidder,closing_time,sellersign,buyersign,templatetype)
-            save_param(room_id,room_name,reference_sector,reference_type,quantity,articleno)
+            save_param(room_id,current_user.username,room_name,reference_sector,reference_type,quantity,articleno)
             if current_user.username in usernames:
                 usernames.remove(current_user.username)
             print(len(usernames))
@@ -148,21 +149,6 @@ def join_room(room_id):
     return {"message":"You have joined the room {}".format(str(room_name))},200
 
 
-@app.route('/roomss/<room_id>/')
-@login_required
-def view_room(room_id):
-    room = get_room(room_id)
-    highest_bid=get_hb(room_id)
-    highest_bidder=get_hbidder(room_id)
-    if room and is_room_member(room_id, current_user.username):
-        room_members = get_room_members(room_id)
-        messages = get_messages(room_id)
-        ## The event for the timeout message could go here
-        return render_template('view_room.html', username=current_user.username, room=room, room_members=room_members,
-                               messages=messages,highest_bid=highest_bid,highest_bidder=highest_bidder)
-    else:
-        return "Room not found", 404
-
 
 
 @app.route('/rooms/<room_id>/bids', methods=['GET'])
@@ -209,13 +195,9 @@ def chat(room_id):
                                                                             bid))
                     sign=get_sign(current_user.username)
                     ## Calculation of distance between users done at every bid
-                    distance=geodesic(ast.literal_eval(get_distance(current_user.username)),ast.literal_eval(get_distance(get_room_admin(rn)))).km
-                    print(distance)
+                    distance=distance_calc(current_user.username,get_room_admin(rn))
                     #
-                    save_message(str(room['_id']),bid,current_user.username,sign,distance)
-                    if (int(bid)>int(get_hb(room_id))):
-                        update_bid(room['_id'],bid,current_user.username,sign)
-                        print('Bid is higher')                     
+                    save_message(str(room['_id']),bid,current_user.username,sign,distance)                    
                 else:
                     app.logger.info("Cannot bid if you are Admin")  
                     return{"message":"You cannot issue bids as room admin"},400                          
@@ -225,6 +207,8 @@ def chat(room_id):
             return {"message":"You have issued the bid {}".format(str(bid))},200
         elif request.method=='GET':
             messages = get_messages(room_id)
+            print(is_room_admin(room_id,current_user.username))
+            print(current_user.username!=get_hbidder(room_id))
             if room and is_room_member(room_id, current_user.username):
                 
                 ## Here the bids from all users are shown to the user 
@@ -235,16 +219,48 @@ def chat(room_id):
                     d.append(filtered_d)
 
                 body = {"Bids": d}
-                if (closing_time)<datetime.now():
-                    response={'contract':ended(room_id),'Bids':d}
-                    print(is_room_member(room_id, current_user.username))
-                    print(get_room_members(room_id))
-                    return jsonify(response),200
+                print(is_room_admin(room_id,current_user.username))
+                print((closing_time)<datetime.now())
+                
                 return jsonify(body),200
 
     else:
         return "Room not found or user is not authenticated", 404
 
+@app.route('/rooms/<room_id>/end', methods=['GET','POST'])
+@login_required
+def winner(room_id):
+    closing_time=get_closing(room_id)
+    room = get_room(room_id)
+    rn=room['name']
+## Withing this function the logic for the winner selection is specified, the admin shall input the username of the winner
+    if request.method=='POST':
+        if(is_room_admin(room_id,current_user.username)==0) and (closing_time)<datetime.now(): #Auction is ended and is room admin
+                return{"message":"The specified auction hasnt ended or you are not room admin"},400
+        elif get_hbidder(room_id)=='': ## This would mean the auction doesnt have a winner yet
+            winner=request.form.get("winner") #Should be username
+            wi=json.loads(get_hb(room_id,winner))
+            print(wi)
+            for d in wi:
+                sen=d['doc']['sender']
+                bid=d['doc']['text']
+                sign=d['doc']['sign']
+            update_bid(room['_id'],bid,sen,sign)
+            return {"message":"winner has been selected"},200
+        else: 
+            return {"message":"the winner for this auciton has already been selected"},200
+    elif request.method=='GET':
+        if (closing_time)<datetime.now():
+            print(get_room_admin(rn))
+            if current_user.username==get_hbidder(room_id) or current_user.username == get_room_admin(rn):
+                    response={'contract':ended(room_id)}
+                    print(is_room_member(room_id, current_user.username))
+                    print(response)
+                    return jsonify(response),200
+        return get_bidders(room_id),200
+
+            
+            
 
 @app.route('/rooms/', methods=['GET'])
 @login_required
@@ -254,8 +270,8 @@ def query():
         reference_sector=request.form.get("reference_sector")
         reference_type=request.form.get("reference_type")
         ongoing=request.form.get("ongoing")
-        auctions=find_rooms(room_name,reference_sector,reference_type,ongoing)
-        print(auctions)
+        distance= request.form.get("distance")
+        auctions=find_rooms(room_name,reference_sector,reference_type,ongoing,current_user.username,distance)
         return auctions,200
 
 
