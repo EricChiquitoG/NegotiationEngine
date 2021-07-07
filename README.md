@@ -27,6 +27,7 @@ This API is written in Python Flask. It is composed by various views and functio
   * [Join Auction](#join-auction-GET)
   * [Auction room](#auction-room-GET-POST)
   * [Auction end](#auction-end-GET-POST)
+* [Limitations](#limitations)
 
 ## General Info:
 The purpose of this API is to serve as the negotiation engine for the demand-supply matching of components and materials with an auctioning protocol.
@@ -153,3 +154,8 @@ If no winner has been selected by the time the GET request is processed an error
 
 <img src="FLASK/gitimages/nowinner.PNG" width="66%" height="66%">
 
+## Limitations:
+
+The system is very sensitive regarding the data inputs and outputs specifically in dates and location.
+Location is a tuple that consist in both longitude and latitude, if the user is created by any other means that by hand the location data can lead to distance computing errors.
+Dates shall be inputed in the specified format, the format used is the HTML datetime format which may be similar to the frontend to this project you may desire to use, bear that in mind.
