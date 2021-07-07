@@ -3,7 +3,7 @@ from datetime import datetime
 from bson.json_util import dumps
 from flask import Flask, render_template, request, redirect, url_for, jsonify
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
-from flask_socketio import SocketIO, join_room, leave_room
+#from flask_socketio import SocketIO, join_room, leave_room
 from pymongo.errors import DuplicateKeyError
 from string import Template
 from geopy.distance import geodesic
@@ -16,7 +16,7 @@ from db import get_bidders,find_rooms,distance_calc,ended,get_template,get_t,get
 app = Flask(__name__)
 app.secret_key = "sfdjkafnk"
 
-socketio = SocketIO(app,cors_allowed_origins="*")
+#socketio = SocketIO(app,cors_allowed_origins="*")
 login_manager = LoginManager()
 login_manager.login_view = 'login'
 login_manager.init_app(app)
@@ -284,4 +284,4 @@ def load_user(username):
 
 
 if __name__ == '__main__':
-    socketio.run(app, debug=True)
+    app.run(debug=True)
