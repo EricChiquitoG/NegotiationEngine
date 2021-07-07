@@ -6,8 +6,10 @@ This API is written in Python Flask. It is composed by various views and functio
 
 
 ## <span style="color:blue">Installation</span>
-1. [Python FLASK](https://flask.palletsprojects.com/en/2.0.x/)
-2. [PyMongo](https://pypi.org/project/pymongo/) 
+1. [**Python FLASK**](https://flask.palletsprojects.com/en/2.0.x/)
+2. [**PyMongo**](https://pypi.org/project/pymongo/) 
+3. [Werkzeug](https://pypi.org/project/Werkzeug/)
+4. [Geopy](https://pypi.org/project/geopy/)
 
 ## Table of contents
 * [General Info](#general-info)
