@@ -11,6 +11,12 @@ This API is written in Python Flask. It is composed by various views and functio
 3. [Werkzeug](https://pypi.org/project/Werkzeug/)
 4. [Geopy](https://pypi.org/project/geopy/)
 
+## How to run:
+
+The process to run the current API is very simple, once the above mentioned libraries are installed the only thing missing is run the **app.py** which will start the API in the localhost at port 5000, URL: http://127.0.0.1:5000´.
+
+The API can be tested with [POSTMAN](https://www.postman.com/downloads/) as the examples shown below will illustrate, if you have doubts regarding how data should look, take a look at the following sections.
+
 ## Table of contents
 * [General Info](#general-info)
 * [Data Structure](#data_structure)
