@@ -115,6 +115,7 @@ def add_room_members(room_id, room_name, usernames, added_by):
 
 ### Get the highest bids in current auction for each active user
 def get_bidders(room_id):
+    safe=[]
     hb=list(messages_collection.aggregate([{'$group':{'_id':'$sender','doc':{'$max':{
                                                                         'text':'$text',
                                                                         'sender':'$sender',
@@ -125,7 +126,11 @@ def get_bidders(room_id):
                                                                     }
                                                                     }}
                                                                     ]))
-    return JSONEncoder().encode(hb)
+
+    
+    for i in hb:
+        safe.append(i['doc'])
+    return JSONEncoder().encode(safe)
 
 
 def remove_room_members(room_id, usernames):
@@ -214,7 +219,6 @@ def ended(room_id):
         template=Template(get_template(room_id))
         room=rooms_collection.find_one({'_id': ObjectId(room_id)})
         room_d=room_details.find_one({'_id': ObjectId(room_id)})
-        print(room['highest_bidder'],room_d['quantity'],room_d['articleno'],122,room['closing_time'],room['created_by'],room['buyersign'],room['sellersign'])
         d=dict(buyer=room['highest_bidder'],quantity=room_d['quantity'], item=room_d['articleno'],ammount=highest_bid,date=room['closing_time'],owner=room['created_by'],buyersign=room['buyersign'],sellersign=room['sellersign'])
         signed_c=template.safe_substitute(d)
         return(signed_c)

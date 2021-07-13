@@ -3,7 +3,7 @@ from datetime import datetime
 from bson.json_util import dumps
 from flask import Flask, render_template, request, redirect, url_for, jsonify
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
-#from flask_socketio import SocketIO, join_room, leave_room
+from flask_cors import CORS
 from pymongo.errors import DuplicateKeyError
 from string import Template
 from geopy.distance import geodesic
@@ -14,21 +14,28 @@ import json
 from db import get_bidders,find_rooms,distance_calc,ended,get_template,get_t,get_distance,get_room_admin,save_param,add_room_member,add_room_members,update_bid, get_closing,get_hb,get_sign,get_hbidder, get_messages, get_room, get_room_members, get_rooms_for_user, get_user, is_room_admin, is_room_member, remove_room_members, save_message, save_room, save_user, update_room
 
 app = Flask(__name__)
-app.secret_key = "sfdjkafnk"
 
-#socketio = SocketIO(app,cors_allowed_origins="*")
+
+cors = CORS(app)
+app.secret_key = "sfdjkafnk"
 login_manager = LoginManager()
 login_manager.login_view = 'login'
 login_manager.init_app(app)
 
 
-@app.route('/')
+@app.route('/hello', methods=["GET","POST"])
 def home():
-    rooms = []
-    if current_user.is_authenticated():
-        rooms = get_rooms_for_user(current_user.username)
-    return render_template("index.html", rooms=rooms)
+    if request.method == "GET":
+        return "hola esta es una prueba",200
+    elif request.method=="POST": 
+        usuario=request.json.get('usuario')
+        contra=request.json.get('contra')
+        print(usuario,contra)
+        return 'se ha mandado un post',200
 
+
+
+# The login route receives the username and password as a POST request
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -37,16 +44,21 @@ def login():
 
     message = ''
     if request.method == 'POST':
-        username = request.form.get('username')
-        password_input = request.form.get('password')
+        username = request.json.get('username')
+        password_input = request.json.get('password')
         user = get_user(username)
 
         if user and user.check_password(password_input):
             login_user(user)
-            return {"message":"User {} has been authenticated".format(user)},200
+           
+            return {"message":"User {} has been authenticated".format(str(user.username))},200
         else:
             message = 'Failed to login!'
     return message,400
+
+
+# Signup function is not habilitated for the time being, users are to be created either
+# by function or directly into the database
 
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
@@ -55,11 +67,11 @@ def signup():
 
     message = ''
     if request.method == 'POST':
-        username = request.form.get('username')
-        email = request.form.get('email')
-        password = request.form.get('password')
-        sign=request.form.get('sign')
-        location=request.form.get('sign')
+        username = request.json.get('username')
+        email = request.json.get('email')
+        password = request.json.get('password')
+        sign=request.json.get('sign')
+        location=request.json.get('sign')
         try:
             save_user(username, email, password,sign,location)
             return redirect(url_for('login'))
@@ -67,31 +79,37 @@ def signup():
             message = "User already exists!"
     return render_template('signup.html', message=message)
 
+##holi={"room_name":"Erics composite auction","members":"","highest_bid":"5000","auction_type":"Ascending","closing_time":"2021-07-06T10:34:20","reference_sector":"Composites","reference_type":"Electronic","quantity":"15","templatetype":"article","articleno":"23dd"}
+
+
+# A request to this function will log out the user from the server
 
 @app.route("/logout/")
 @login_required
 def logout():
     logout_user()
-    return 'the user has logged out',200
+    return {'message':'the user has logged out'},200
 
+
+# Use a POST request to create a new auction, user has to be logged in
 
 @app.route('/create-room/', methods=['GET', 'POST'])
 @login_required
 def create_room():
     if request.method == 'POST':
-        room_name = request.form.get('room_name')
-        highest_bid=request.form.get('highest_bid')
+        room_name = request.json.get('room_name')
+        highest_bid=request.json.get('highest_bid')
         highest_bidder=''
-        auction_type=request.form.get('auction_type')
-        closing_time=datetime.strptime(request.form.get('closing_time'), '%Y-%m-%dT%H:%M:%S')
-        reference_sector=request.form.get('reference_sector')
-        reference_type=request.form.get('reference_type')
-        quantity=request.form.get('quantity')
-        articleno=request.form.get('articleno')
+        auction_type=request.json.get('auction_type')
+        closing_time=datetime.strptime(request.json.get('closing_time'), '%Y-%m-%dT%H:%M:%S')
+        reference_sector=request.json.get('reference_sector')
+        reference_type=request.json.get('reference_type')
+        quantity=request.json.get('quantity')
+        articleno=request.json.get('articleno')
         sellersign=get_sign(current_user.username)
         buyersign=''
-        templatetype=request.form.get('templatetype')
-        usernames = [username.strip() for username in request.form.get('members').split(',')]
+        templatetype=request.json.get('templatetype')
+        usernames = [username.strip() for username in request.json.get('members').split(',')]
 
         if len(room_name) and len(usernames):
                       
@@ -107,6 +125,8 @@ def create_room():
             return {"message":"Unable to create room"},400
 
 
+# Edit room also is not enabled but should work with little effort if needed
+
 @app.route('/rooms/<room_id>/edit', methods=['GET', 'POST'])
 @login_required
 def edit_room(room_id):
@@ -116,11 +136,11 @@ def edit_room(room_id):
         room_members_str = ",".join(existing_room_members)
         message = ''
         if request.method == 'POST':
-            room_name = request.form.get('room_name')
+            room_name = request.json.get('room_name')
             room['name'] = room_name
             update_room(room_id, room_name)
 
-            new_members = [username.strip() for username in request.form.get('members').split(',')]
+            new_members = [username.strip() for username in request.json.get('members').split(',')]
             members_to_add = list(set(new_members) - set(existing_room_members))
             members_to_remove = list(set(existing_room_members) - set(new_members))
             if len(members_to_add):
@@ -132,6 +152,9 @@ def edit_room(room_id):
         return render_template('edit_room.html', room=room, room_members_str=room_members_str, message=message)
     else:
         return "Room not found", 404
+
+
+# GET request to this route has to include room_id for the room you want to join but no aditional parameters are needed
 
 @app.route('/rooms/<room_id>/join', methods=['GET'])
 @login_required
@@ -151,7 +174,7 @@ def join_room(room_id):
 
 
 
-@app.route('/rooms/<room_id>/bids', methods=['GET'])
+""" @app.route('/rooms/<room_id>/bids', methods=['GET'])
 @login_required
 def messages(room_id):
     room = get_room(room_id)
@@ -172,8 +195,11 @@ def messages(room_id):
 
 
     else:
-        return "Room not found", 404
+        return "Room not found", 404 """
 
+
+# A POST request to this route will receive parameter message_input and will generate a bid to the auction
+# A GET request will show all the messages submited to this auction.
 
 @app.route('/rooms/<room_id>/', methods=['GET','POST'])
 @login_required
@@ -186,7 +212,7 @@ def chat(room_id):
         ## The event for the timeout message could go here
         
         if request.method=='POST':
-            bid=request.form.get("message_input")
+            bid=request.json.get("message_input")
             if (closing_time)>datetime.now():
                 print(is_room_admin(room_id,current_user.username))
                 if(is_room_admin(room_id,current_user.username)==0):
@@ -227,6 +253,11 @@ def chat(room_id):
     else:
         return "Room not found or user is not authenticated", 404
 
+
+# A POST request to this auction is used to select the winner with the paremeter "winner" only in case no winner is selected yet
+# A GET request in case the auction isnt ended will display the highest bids from all the biders
+# and will show the ricardian contract in case the auction is ended
+
 @app.route('/rooms/<room_id>/end', methods=['GET','POST'])
 @login_required
 def winner(room_id):
@@ -238,7 +269,7 @@ def winner(room_id):
         if(is_room_admin(room_id,current_user.username)==0) and (closing_time)<datetime.now(): #Auction is ended and is room admin
                 return{"message":"The specified auction hasnt ended or you are not room admin"},400
         elif get_hbidder(room_id)=='': ## This would mean the auction doesnt have a winner yet
-            winner=request.form.get("winner") #Should be username
+            winner=request.json.get("winner") #Should be username
             wi=json.loads(get_hb(room_id,winner))
             print(wi)
             for d in wi:
@@ -260,9 +291,9 @@ def winner(room_id):
         return get_bidders(room_id),200
 
             
-            
+# A GET request to this route is used to query auction based in the parameters listed below
 
-@app.route('/rooms/', methods=['GET'])
+@app.route('/rooms', methods=['GET'])
 @login_required
 def query():
     if request.method=='GET':
