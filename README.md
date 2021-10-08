@@ -104,12 +104,12 @@ With this request a new auction is created the specified data is used to fill th
 ### Auction Query: GET
 
 This GET request querys on existing auctions according any specified parameters such as:
-* room_name: In case a specific name for an auction want to be queried (later it will be added to contain the specified field not be exact as now)
-* reference_type: What element is being exchanged [Composites, mechatronics, electronics, textiles, batteries]
-* reference_sector: The type of the element being exhanged [Material, products, services].
-* articleno: The id of the element being exchanged
-* ongoing: Ended auctions can be queried in case is desired (later the predetermined value will be set to true)
-* distance: Show auctions that are AT MOST the specified distance (later an interval will be used for better selection)
+* room_name (string): In case a specific name for an auction want to be queried (later it will be added to contain the specified field not be exact as now)
+* reference_type (string): What element is being exchanged [Composites, mechatronics, electronics, textiles, batteries]
+* reference_sector (string): The type of the element being exhanged [Material, products, services].
+* articleno (string): The id of the element being exchanged
+* ongoing (bool): Ended auctions can be queried in case is desired (later the predetermined value will be set to true)
+* distance (int): Show auctions that are AT MOST the specified distance (later an interval will be used for better selection)
 
 <img src="API PILOT 1/gitimages/query.PNG" width="66%" height="66%">
 
