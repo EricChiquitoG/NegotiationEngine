@@ -28,7 +28,6 @@ The API can be tested with [POSTMAN](https://www.postman.com/downloads/) as the 
   * [Bid Database](#bid-database)
 * [Examples of use](#examples-of-use)
   * [User Login](#user-login-POST)
-  * [User Logout](#user-logout-GET)
   * [Create Room](#create-room-POST)
   * [Auction Query](#auction-query-GET)
   * [Join Auction](#join-auction-GET)
