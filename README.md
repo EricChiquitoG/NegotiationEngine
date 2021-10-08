@@ -30,6 +30,7 @@ The API can be tested with [POSTMAN](https://www.postman.com/downloads/) as the 
   * [User Login](#user-login-POST)
   * [User Logout](#user-logout-GET)
   * [Create Room](#create-room-POST)
+  * [Auction Query](#auction-query-GET)
   * [Join Auction](#join-auction-GET)
   * [Auction room](#auction-room-GET-POST)
   * [Auction end](#auction-end-GET-POST)
@@ -79,17 +80,9 @@ The information of the members of each auction is contained within this database
 This database contains information of each bid on every room, contains information of the room, the user, the distance between the auction owner and the bidder.
 
 ## Examples of use:
-### User Login: POST
-Receives:
-* Username (String)
-* Password (String)
+### User Login:
 
-<img src="API PILOT 1/gitimages/login.PNG" width="66%" height="66%">
-
-As seen in the above image the login process is fairly straightforward the user inputs the credentials from a existing database and logs in (for this case the password for all users is test)
-### User Logout: GET
-This route does not receives parameter, accesing this route automatically disconnects the user as follows.
-<img src="API PILOT 1/gitimages/logout.PNG" width="66%" height="66%">
+In this step of the implementation the need for a user login is not used it rather inherits the user that issues the request in the headers. This for the eventual incorporation to the GUI and the Identity and Access Managment tool. 
 
 ### Create room: POST
 Receives:
@@ -108,6 +101,19 @@ Receives:
 
 With this request a new auction is created the specified data is used to fill the information that is going to be used to query the auctions as we will see in another section and carries the winner information as well.
 
+### Auction Query: GET
+
+This GET request querys on existing auctions according any specified parameters such as:
+* room_name: In case a specific name for an auction want to be queried (later it will be added to contain the specified field not be exact as now)
+* reference_type: What element is being exchanged [Composites, mechatronics, electronics, textiles, batteries]
+* reference_sector: The type of the element being exhanged [Material, products, services].
+* articleno: The id of the element being exchanged
+* ongoing: Ended auctions can be queried in case is desired (later the predetermined value will be set to true)
+* distance: Show auctions that are AT MOST the specified distance (later an interval will be used for better selection)
+
+<img src="API PILOT 1/gitimages/query.PNG" width="66%" height="66%">
+
+In this example of a query the queried values where to find auction with distance of AT MOST 3000km from me and reference_sector of textiles.
 ### Join auction: GET
 
 <img src="API PILOT 1/gitimages/join.PNG" width="66%" height="66%">
