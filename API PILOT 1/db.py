@@ -11,7 +11,6 @@ from geopy.geocoders import Nominatim
 import json
 from geopy.distance import geodesic
 import ast
-import pandas as pd
 from collections import defaultdict
 
 
@@ -45,55 +44,63 @@ def save_user(username, email, password,sign,location):
     salt = uuid.uuid4().hex
     hashsign = hashlib.sha256(salt.encode() + password.encode()).hexdigest() + ':' + salt
     print(type(location),location)
-    users_collection.insert_one({'_id': username, 'email': email, 'password': password_hash,'sign':hashsign,'location':location})
+    users_collection.insert_one({'type':'user','_id': ObjectId(),'username':username, 'email': email, 'password': password_hash,'sign':hashsign,'location':location})
 
 
 def get_user(username):
-    user_data = users_collection.find_one({'_id': username})
-    return User(user_data['_id'], user_data['email'], user_data['password'],user_data['sign'],user_data['location']) if user_data else None
+    user_data = users_collection.find_one({'username': username})
+    return User(user_data['username'], user_data['email'], user_data['password'],user_data['sign'],user_data['location']) if user_data else None
 
 def get_sign(username):
-    user_data = users_collection.find_one({'_id': username})
+    user_data = users_collection.find_one({'username': username})
+
     return user_data['sign']
 
 def find_rooms(room_name,reference_sector,reference_type,ongoing,user ,distance):
     filtro={}
-    if room_name is not None: filtro['room_name'] = room_name
-    if reference_sector is not None: filtro['reference_sector'] = reference_sector
-    if reference_type is not None: filtro['reference_type'] = reference_type
-    if ongoing == 'True': filtro['closing_time'] = {'$gte' : datetime.now() }
+
+
+    if room_name is not None: filtro['payload.room_name.val.0'] = room_name
+    if reference_sector is not None: filtro['payload.reference_sector.val.0'] = reference_sector
+    if reference_type is not None: filtro['payload.reference_type.val.0'] = reference_type
+    if ongoing == 'True': filtro['payload.closing_time.val.0'] = {'$gte' : datetime.now() }
     # Create a filter for the distance
     if distance is not None:
         names,todos = get_distances(user,distance)
-        filtro['created_by']={'$in':names}
+        filtro['payload.created_by.val.0']={'$in':names}
     else:
         names,todos = get_distances(user,10000)
-        filtro['created_by']={'$in':names}
+        filtro['payload.created_by.val.0']={'$in':names}
     auctions=list(room_details.find(filtro))
 
-    values_of_key = [a_dict['created_by'] for a_dict in auctions]
-    print(todos)
+    values_of_key = [a_dict['payload']['created_by']['val'][0] for a_dict in auctions]
+    
     for k in auctions:
+
         for j in todos:
-            if k["created_by"] in j.values():
-                k["distance"]=j["dist"]
+            if k['payload']['created_by']['val'][0] in j.values():
+                print(k)
+                to_append={'distance':{'val':['test']}}
+                k['payload'].update(to_append)
+                print(k)
+                k['payload']['distance']['val'][0]=j['dist']
 
 
 
-    l=list(filter(lambda d: d['created_by'] in values_of_key, auctions))
+    l=list(filter(lambda d: d['payload']['created_by']['val'][0] in values_of_key, auctions))
     return(JSONEncoder().encode(l))
 
 
 ## This function returns a list with the distances relative to the bidder to all the users and filters by distance
 def get_distances(bidder,dist):
-    base=list(users_collection.find({},{'location':1}))
+    base=list(users_collection.find({},{'location':0}))
     for d in base:
-        d['dist']=distance_calc(bidder,d['_id'])
+        d['dist']=distance_calc(bidder,d['username'])
         d.pop('location',None)
-    filtered_users=[x for x in base if float(x['dist'])<=float(dist) and x['_id']!=bidder]
-    my_list = list(map(lambda x: x['_id'], filtered_users))
+    filtered_users=[x for x in base if float(x['dist'])<=float(dist) and x['username']!=bidder]
+    my_list = list(map(lambda x: x['username'], filtered_users))
     for d in filtered_users:
-        d['created_by']=d.pop('_id')
+        d['created_by']=d.pop('username')
     #print(my_list,filtered_users)
     l=list(filter(lambda d: d['created_by'] in my_list, filtered_users))
     #print(l)
@@ -104,16 +111,35 @@ def distance_calc(bidder,owner):
     distance=geodesic(ast.literal_eval(get_distance(bidder)),ast.literal_eval(get_distance(owner))).km
     return distance
 
-def save_room(room_name, created_by,auction_type, highest_bid,highest_bidder,closing_time,sellersign,buyersign,templatetype):
+def save_room(privacy, room_name, created_by,auction_type, highest_bid,highest_bidder,closing_time,sellersign,buyersign,templatetype):
     room_id = rooms_collection.insert_one(
-        {'name': room_name, 'created_by': created_by, 'created_at': datetime.now(),'auction_type':auction_type, 'highest_bid':highest_bid,'highest_bidder':highest_bidder,'closing_time':closing_time,'sellersign':sellersign,'buyersign':buyersign,'templatetype':templatetype}).inserted_id
+        {'type':'auction','_id':ObjectId(),'privacy':privacy,
+        'payload':{'name': {'val':[room_name]},
+                 'created_by': {'val':[created_by]}, 
+                 'created_at': {'val':[datetime.now()]},
+                 'auction_type':{'val':[auction_type]}, 
+                 'highest_bid':{'val':[highest_bid]},
+                 'highest_bidder':{'val':[highest_bidder]},
+                 'closing_time':{'val':[closing_time]},
+                 'sellersign':{'val':[sellersign]},
+                 'buyersign':{'val':[buyersign]},
+                 'templatetype':{'val':[templatetype]}}}).inserted_id
     add_room_member(room_id, room_name, created_by, created_by, is_room_admin=True)
     return room_id
 
 def save_param(room_id,created_by,room_name,reference_sector,reference_type, quantity, articleno):
     room=rooms_collection.find_one({'_id': ObjectId(room_id)})
-    room_details.insert_one({'_id': ObjectId(room_id),'room_name':room_name,'created_by':created_by,'closing_time':room['closing_time'], 'reference_sector':reference_sector,'reference_type':reference_type,'quantity':quantity,'articleno':articleno})
+    room_details.insert_one(
+        {'type':'details','_id': ObjectId(room_id),
+        'payload':{'room_name':{'val':[room_name]},
+                'created_by':{'val':[created_by]},
+                'closing_time':{'val':[room['payload']['closing_time']['val'][0]]}, 
+                'reference_sector':{'val':[reference_sector]},
+                'reference_type':{'val':[reference_type]},
+                'quantity':{'val':[quantity]},
+                'articleno':{'val':[articleno]}}})
 
+# Currently is not being used
 def update_room(room_id, room_name):
     rooms_collection.update_one({'_id': ObjectId(room_id)}, {'$set': {'name': room_name}})
     room_members_collection.update_many({'_id.room_id': ObjectId(room_id)}, {'$set': {'room_name': room_name}})
@@ -137,20 +163,45 @@ def add_room_members(room_id, room_name, usernames, added_by):
 ### Get the highest bids in current auction for each active user
 def get_bidders(room_id):
     safe=[]
-    hb=list(messages_collection.aggregate([{'$group':{'_id':'$sender','doc':{'$max':{
-                                                                        'text':'$text',
-                                                                        '_id':'$sender',
-                                                                        'created_at':'$created_at',
-                                                                        'distance':'$distance',
-                                                                        'sign':'$sign'
-                                                                        }
-                                                                    }
-                                                                    }}
-                                                                    ]))
+    room=rooms_collection.find_one({'_id': ObjectId(room_id)})
+    if room['payload']['auction_type']['val'][0]=="Ascending":
 
-    
+        hb=list(messages_collection.aggregate([ {'$unwind':'$payload.text.val'},
+                                                {'$unwind':'$payload.sender.val'},
+                                                {'$unwind':'$payload.created_at.val'},
+                                                {'$unwind':'$payload.sign.val'},
+                                                {'$unwind':'$payload.distance.val'},
+                                                {'$match':{'room_id':room_id}},
+                                                {'$group':{'_id':'$payload.sender.val','doc':{'$max':{
+                                                                            'text':'$payload.text.val',
+                                                                            'sender':'$payload.sender.val',
+                                                                            'created_at':'$payload.created_at.val',
+                                                                            'distance':'$payload.distance.val',
+                                                                            'sign':'$payload.sign.val'
+                                                                            }
+                                                                        }
+                                                                        }}
+                                                                        ]))
+    else:
+        hb=list(messages_collection.aggregate([ {'$unwind':'$payload.text.val'},
+                                                {'$unwind':'$payload.sender.val'},
+                                                {'$unwind':'$payload.created_at.val'},
+                                                {'$unwind':'$payload.sign.val'},
+                                                {'$unwind':'$payload.distance.val'},
+                                                {'$match':{'room_id':room_id}},
+                                                {'$group':{'_id':'$payload.sender.val','doc':{'$min':{
+                                                                            'text':'$payload.text.val',
+                                                                            'sender':'$payload.sender.val',
+                                                                            'created_at':'$payload.created_at.val',
+                                                                            'distance':'$payload.distance.val',
+                                                                            'sign':'$payload.sign.val'
+                                                                            }
+                                                                        }
+                                                                        }}
+                                                                        ]))
     for i in hb:
         safe.append(i['doc'])
+        
     return JSONEncoder().encode(safe)
 
 
@@ -164,7 +215,8 @@ def get_room_admin(room_id):
     return room['_id']['username']
 
 def get_distance(username):
-    dist=users_collection.find_one({'_id':username})
+    dist=users_collection.find_one({'username':username})
+    
     return dist['location']
 
 def get_room_members(room_id):
@@ -185,22 +237,28 @@ def is_room_admin(room_id, username):
 
 
 def save_message(room_id, text, sender, sign,distance):
-    messages_collection.insert_one({'room_id': room_id, 'text': text, 'sender': sender, 'created_at': datetime.now(),'sign':sign,'distance':distance})
+    messages_collection.insert_one({'type':'bid','_id':ObjectId(), 'room_id': room_id, 
+                                'payload': {'text':{'val':[text]}, 
+                                'sender': {'val':[sender]}, 
+                                'created_at': {'val':[datetime.now()]},
+                                'sign':{'val':[sign]},
+                                'distance':{'val':[distance]}}})
 
 def get_hb(room_id,username):   #Custom function that gets the highest bid value for a particular auction entry
     bidders=json.loads(get_bidders(room_id))
-    output_dict = [x for x in bidders if x['_id'] == username]
+    print(bidders)
+    output_dict = [x for x in bidders if x['sender'] == username]
     return json.dumps(output_dict)
 
 
 def get_hbidder(room_id): 
     hb=rooms_collection.find_one({'_id': ObjectId(room_id)})
-    valor=hb['highest_bidder']
+    valor=hb['payload']['highest_bidder']['val'][0]
     return valor
 
 def get_template(room_id):
     hb=rooms_collection.find_one({'_id': ObjectId(room_id)})
-    ph=templates_collection.find_one({'temp_type': hb['templatetype']})
+    ph=templates_collection.find_one({'temp_type': hb['payload']['templatetype']['val'][0]})
     valor=ph['template']
     return valor
 
@@ -212,34 +270,32 @@ def get_t(temp_type):
 
 def get_closing(room_id):   #Custom function that gets the highest bid value for a particular auction entry
     hb=rooms_collection.find_one({'_id': ObjectId(room_id)})
-    valort=hb['closing_time']
+    valort=hb['payload']['closing_time']['val'][0]
     return valort
 
 def update_bid(room_id,highest_bid,highest_bidder,buyersign):
-    rooms_collection.update_one({'_id': ObjectId(room_id)}, {'$set': {'highest_bid': highest_bid}})
-    rooms_collection.update_one({'_id': ObjectId(room_id)}, {'$set': {'highest_bidder': highest_bidder}})
-    rooms_collection.update_one({'_id': ObjectId(room_id)}, {'$set': {'buyersign': buyersign}})
+    rooms_collection.update_one({'_id': ObjectId(room_id)}, {'$set': {'payload.highest_bid.val.0': highest_bid}})
+    rooms_collection.update_one({'_id': ObjectId(room_id)}, {'$set': {'payload.highest_bidder.val.0': highest_bidder}})
+    rooms_collection.update_one({'_id': ObjectId(room_id)}, {'$set': {'payload.buyersign.val.0': buyersign}})
 
 def get_messages(room_id, page=0):
    
     messages = list(
         messages_collection.find({'room_id': room_id}))
     for message in messages:
-        message['created_at'] = message['created_at'].strftime("%d %b, %H:%M:%S")
+        message['payload']['created_at']['val'][0] = message['payload']['created_at']['val'][0].strftime("%d %b, %H:%M:%S")
     return messages
 
 
 def ended(room_id):
     
-    highest_bid=get_room(room_id)['highest_bid']
+    highest_bid=get_room(room_id)['payload']['highest_bid']['val'][0]
     highest_bidder=get_hbidder(room_id)
     if highest_bidder:
         template=Template(get_template(room_id))
         room=rooms_collection.find_one({'_id': ObjectId(room_id)})
         room_d=room_details.find_one({'_id': ObjectId(room_id)})
-        d=dict(buyer=room['highest_bidder'],quantity=room_d['quantity'], item=room_d['articleno'],ammount=highest_bid,date=room['closing_time'],owner=room['created_by'],buyersign=room['buyersign'],sellersign=room['sellersign'])
+        d=dict(buyer=room['payload']['highest_bidder']['val'][0],quantity=room_d['payload']['quantity']['val'][0], item=room_d['payload']['articleno']['val'][0],ammount=highest_bid,date=room['payload']['closing_time']['val'][0],owner=room['payload']['created_by']['val'][0],buyersign=room['payload']['buyersign']['val'][0],sellersign=room['payload']['sellersign']['val'][0])
         signed_c=template.safe_substitute(d)
         return(signed_c)
     else: return 'no winner was selected'
-
-
