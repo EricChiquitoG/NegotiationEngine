@@ -304,3 +304,12 @@ def ended(room_id):
 
 def get_room_details(room_id):
     return room_details.find_one({ '_id': ObjectId(room_id) })
+
+def get_active_rooms_by_id(room_ids):
+    """
+    Retrieves active auctions by room ids
+
+    By active it means that a winner has not been selected yet, however
+    the closing date may have passed
+    """
+    return rooms_collection.find({ '_id': { '$in': room_ids }, 'payload.highest_bidder.val': '' })

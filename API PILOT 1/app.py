@@ -10,7 +10,7 @@ from geopy.distance import geodesic
 import ast
 import json
 
-from db import get_bidders,find_rooms,distance_calc,ended,get_template,get_t,get_distance,get_room_admin,save_param,add_room_member,add_room_members,update_bid, get_closing,get_hb,get_sign,get_hbidder, get_messages, get_room, get_room_members, get_rooms_for_user, get_user, is_room_admin, is_room_member, remove_room_members, save_message, save_room, save_user, update_room, get_room_details
+from db import get_bidders,find_rooms,distance_calc,ended,get_template,get_t,get_distance,get_room_admin,save_param,add_room_member,add_room_members,update_bid, get_closing,get_hb,get_sign,get_hbidder, get_messages, get_room, get_room_members, get_rooms_for_user, get_user, is_room_admin, is_room_member, remove_room_members, save_message, save_room, save_user, update_room, get_room_details, get_active_rooms_by_id
 from db import JSONEncoder
 
 app = Flask(__name__)
@@ -305,6 +305,14 @@ def query():
 
 @app.route('/rooms/<room_id>/info', methods=['GET'])
 def get_room_info(room_id):
+    """
+    Returns the complete information about the auction. Combines the result of the
+    room, room_details, and room_members collections.
+
+    Errors:
+    - If the privacy is not set to public it checks that the user is a part of the auction,
+      if not a 400 Bad Request is returned.
+    """
     username = request.authorization.username
     app.logger.info("%s requesting auction %s information", username, room_id)
 
@@ -327,6 +335,23 @@ def get_room_info(room_id):
     info['members'] = members
 
     return JSONEncoder().encode(info), 200
+
+@app.route('/rooms/active', methods=['GET'])
+def get_active_rooms():
+    """
+    Returns all the active rooms the user is a part of. Does not return the full information
+    only the "basic" information.
+
+    By active it means that a winner has not been selected yet.
+    """
+    username = request.authorization.username
+    app.logger.info("%s requesting all current auctions the user is part of", username)
+
+    # This isn't ideal since it gets ALL the rooms the user is a part of. Even historical,
+    # but it should be fine for smaller amount of rooms.
+    room_ids = [room['_id']['room_id'] for room in get_rooms_for_user(username)]
+    rooms = list(get_active_rooms_by_id(room_ids))
+    return JSONEncoder().encode(rooms), 200
 
 
 @login_manager.user_loader
