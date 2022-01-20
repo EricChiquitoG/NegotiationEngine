@@ -48,24 +48,21 @@ def login():
 # Signup function is not habilitated for the time being, users are to be created either
 # by function or directly into the database
 
-@app.route('/signup', methods=['GET', 'POST'])
+@app.route('/signup', methods=['POST'])
 def signup():
     if current_user.is_authenticated:
         return redirect(url_for('home'))
 
-    message = ''
-    if request.method == 'POST':
-        username = request.json.get('username')
-        email = request.json.get('email')
-        password = request.json.get('password')
-        sign=request.json.get('sign')
-        location=request.json.get('sign')
-        try:
-            save_user(username, email, password,sign,location)
-            return redirect(url_for('login'))
-        except DuplicateKeyError:
-            message = "User already exists!"
-    return render_template('signup.html', message=message)
+    username = request.json.get('username')
+    email = request.json.get('email')
+    password = request.json.get('password')
+    sign=request.json.get('sign')
+    location=request.json.get('sign')
+    try:
+        save_user(username, email, password, sign, location)
+        return { 'message': "User created" }, 200
+    except DuplicateKeyError:
+        return { 'message': "User already exists!" }, 400
 
 ##holi={"room_name":"Erics composite auction","members":"","highest_bid":"5000","auction_type":"Ascending","closing_time":"2021-07-06T10:34:20","reference_sector":"Composites","reference_type":"Electronic","quantity":"15","templatetype":"article","articleno":"23dd"}
 
