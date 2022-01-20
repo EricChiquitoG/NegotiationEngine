@@ -10,8 +10,8 @@ from geopy.distance import geodesic
 import ast
 import json
 
-
-from db import get_bidders,find_rooms,distance_calc,ended,get_template,get_t,get_distance,get_room_admin,save_param,add_room_member,add_room_members,update_bid, get_closing,get_hb,get_sign,get_hbidder, get_messages, get_room, get_room_members, get_rooms_for_user, get_user, is_room_admin, is_room_member, remove_room_members, save_message, save_room, save_user, update_room
+from db import get_bidders,find_rooms,distance_calc,ended,get_template,get_t,get_distance,get_room_admin,save_param,add_room_member,add_room_members,update_bid, get_closing,get_hb,get_sign,get_hbidder, get_messages, get_room, get_room_members, get_rooms_for_user, get_user, is_room_admin, is_room_member, remove_room_members, save_message, save_room, save_user, update_room, get_room_details
+from db import JSONEncoder
 
 app = Flask(__name__)
 
@@ -303,7 +303,30 @@ def query():
         return auctions,200
 
 
+@app.route('/rooms/<room_id>/info', methods=['GET'])
+def get_room_info(room_id):
+    username = request.authorization.username
+    app.logger.info("%s requesting auction %s information", username, room_id)
 
+    room = get_room(room_id)
+    details = get_room_details(room_id)
+    members = get_room_members(room_id)
+
+    # Only allow members to get details of a non-public auction.
+    if room['privacy'] != "public":
+        found = False
+        for member in members:
+            if member['_id']['username'] == username:
+                found = True
+                break
+        if not found:
+            app.logger.error("%s not authorized to retrieve auction %s", username, room_id)
+            return { 'message': 'Not authorized to view this auction' }, 403
+    
+    info = { **room, **details }
+    info['members'] = members
+
+    return JSONEncoder().encode(info), 200
 
 
 @login_manager.user_loader

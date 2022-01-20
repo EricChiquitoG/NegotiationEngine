@@ -301,3 +301,6 @@ def ended(room_id):
         signed_c=template.safe_substitute(d)
         return(signed_c)
     else: return 'no winner was selected'
+
+def get_room_details(room_id):
+    return room_details.find_one({ '_id': ObjectId(room_id) })
