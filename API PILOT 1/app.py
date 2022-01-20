@@ -10,7 +10,7 @@ from geopy.distance import geodesic
 import ast
 import json
 
-from db import get_bidders,find_rooms,distance_calc,ended,get_template,get_t,get_distance,get_room_admin,save_param,add_room_member,add_room_members,update_bid, get_closing,get_hb,get_sign,get_hbidder, get_messages, get_room, get_room_members, get_rooms_for_user, get_user, is_room_admin, is_room_member, remove_room_members, save_message, save_room, save_user, update_room, get_room_details, get_active_rooms_by_id
+from db import get_bidders,find_rooms,distance_calc,ended,get_template,get_t,get_distance,get_room_admin,save_param,add_room_member,add_room_members,update_bid, get_closing,get_hb,get_sign,get_hbidder, get_messages, get_room, get_room_members, get_rooms_for_user, get_user, is_room_admin, is_room_member, remove_room_members, save_message, save_room, save_user, update_room, get_room_details, get_active_rooms_by_id, get_historical_rooms_by_id
 from db import JSONEncoder
 
 app = Flask(__name__)
@@ -353,6 +353,19 @@ def get_active_rooms():
     rooms = list(get_active_rooms_by_id(room_ids))
     return JSONEncoder().encode(rooms), 200
 
+@app.route('/rooms/history', methods=['GET'])
+def get_history():
+    """
+    Returns the room history for a specific user. Only returns the basic room information.
+
+    The history is all rooms where a winner has been selected.
+    """
+    username = request.authorization.username
+    app.logger.info("%s requesting all historical auctions the user is part of", username)
+
+    room_ids = [room['_id']['room_id'] for room in get_rooms_for_user(username)]
+    rooms = list(get_historical_rooms_by_id(room_ids))
+    return JSONEncoder().encode(rooms), 200
 
 @login_manager.user_loader
 def load_user(username):

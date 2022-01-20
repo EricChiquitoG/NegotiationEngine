@@ -313,3 +313,9 @@ def get_active_rooms_by_id(room_ids):
     the closing date may have passed
     """
     return rooms_collection.find({ '_id': { '$in': room_ids }, 'payload.highest_bidder.val': '' })
+
+def get_historical_rooms_by_id(room_ids):
+    """
+    Retrives historical rooms by room ids. A historical room is a room which has a winner selected.
+    """
+    return rooms_collection.find({ '_id': { '$in': room_ids }, 'payload.highest_bidder.val': { '$nin': [''] } })
