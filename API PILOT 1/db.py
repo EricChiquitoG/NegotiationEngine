@@ -12,9 +12,11 @@ import json
 from geopy.distance import geodesic
 import ast
 from collections import defaultdict
+import os
 
 
-client = MongoClient("mongodb+srv://EricTest:test@cluster0.ozw3z.mongodb.net/myFirstDatabase?retryWrites=true&w=majority", ssl=True,ssl_cert_reqs='CERT_NONE')
+# client = MongoClient("mongodb+srv://EricTest:test@cluster0.ozw3z.mongodb.net/myFirstDatabase?retryWrites=true&w=majority", ssl=True,ssl_cert_reqs='CERT_NONE')
+client = MongoClient(os.environ.get("DATABASE_URL"))
 
 
 chat_db = client.get_database("ChatDB")
