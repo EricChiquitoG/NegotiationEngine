@@ -1,3 +1,4 @@
+from codecs import ignore_errors
 from datetime import datetime
 
 from bson import ObjectId
@@ -223,8 +224,6 @@ def get_room_members(room_id):
     return list(room_members_collection.find({'_id.room_id': ObjectId(room_id)}))
 
 
-def get_rooms_for_user(username):
-    return list(room_members_collection.find({'_id.username': username}))
 
 
 def is_room_member(room_id, username):
@@ -291,11 +290,59 @@ def ended(room_id):
     
     highest_bid=get_room(room_id)['payload']['highest_bid']['val'][0]
     highest_bidder=get_hbidder(room_id)
+    print(highest_bid)
     if highest_bidder:
         template=Template(get_template(room_id))
         room=rooms_collection.find_one({'_id': ObjectId(room_id)})
         room_d=room_details.find_one({'_id': ObjectId(room_id)})
+        print(room,room_d)
         d=dict(buyer=room['payload']['highest_bidder']['val'][0],quantity=room_d['payload']['quantity']['val'][0], item=room_d['payload']['articleno']['val'][0],ammount=highest_bid,date=room['payload']['closing_time']['val'][0],owner=room['payload']['created_by']['val'][0],buyersign=room['payload']['buyersign']['val'][0],sellersign=room['payload']['sellersign']['val'][0])
         signed_c=template.safe_substitute(d)
         return(signed_c)
     else: return 'no winner was selected'
+
+
+def get_rooms_for_admin(username):
+    room_list=  list(room_members_collection.find({'_id.username': username, 'is_room_admin':True}))
+    room_names=[]
+    for i in room_list:
+        room_names.append(i['_id']['room_id'])
+    return room_names
+
+def get_rooms_for_user(username):
+    room_list= list(room_members_collection.find({'_id.username': username, 'is_room_admin':False}))
+
+    room_names=[]
+    for i in room_list:
+        room_names.append(i['_id']['room_id'])
+    return room_names
+
+
+def owned_auctions(user_id,owner):
+    if owner==True:
+        auction_id=(get_rooms_for_admin(user_id))
+    else:
+        auction_id=(get_rooms_for_user(user_id))
+    #print(auction_id)
+    keys=['_id','name','auction_type','created_by','created_at','closing_time','highest_bid']
+    owned=[]
+    d={}
+
+    auctions=list(rooms_collection.find({'_id':{'$in':auction_id}}))
+    #print(auctions)
+    for i in auctions:
+        d.update({'_id':i['_id']})
+        d.update({'name':i['payload']['name']['val'][0]})
+        d.update({'auction_type':i['payload']['auction_type']['val'][0]})
+        d.update({'created_by':i['payload']['created_by']['val'][0]})
+        d.update({'created_at':i['payload']['created_at']['val'][0]})
+        d.update({'closing_time':i['payload']['closing_time']['val'][0]})
+        d.update({'highest_bid':i['payload']['highest_bid']['val'][0]})
+
+        d2=d.copy()
+        owned.append(d2)
+        
+
+    print(owned)
+    return JSONEncoder().encode(owned)
+

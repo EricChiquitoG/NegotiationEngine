@@ -11,7 +11,7 @@ import ast
 import json
 
 
-from db import get_bidders,find_rooms,distance_calc,ended,get_template,get_t,get_distance,get_room_admin,save_param,add_room_member,add_room_members,update_bid, get_closing,get_hb,get_sign,get_hbidder, get_messages, get_room, get_room_members, get_rooms_for_user, get_user, is_room_admin, is_room_member, remove_room_members, save_message, save_room, save_user, update_room
+from db import owned_auctions,get_bidders,find_rooms,distance_calc,ended,get_template,get_t,get_distance,get_room_admin,save_param,add_room_member,add_room_members,update_bid, get_closing,get_hb,get_sign,get_hbidder, get_messages, get_room, get_room_members, get_rooms_for_user, get_user, is_room_admin, is_room_member, remove_room_members, save_message, save_room, save_user, update_room
 
 app = Flask(__name__)
 
@@ -306,8 +306,22 @@ def query():
         return auctions,200
 
 
+@app.route('/myrooms/admin',methods=['GET'])
+def myauct_a():
+    if request.method=='GET':
+        user=request.authorization.username
+        owner=True
+        auct=owned_auctions(user,owner)
+        return auct,200 
 
 
+@app.route('/myrooms/user',methods=['GET'])
+def myauct_u():
+    if request.method=='GET':
+        user=request.authorization.username
+        owner=False
+        auct=owned_auctions(user,owner)
+        return auct,200 
 
 @login_manager.user_loader
 def load_user(username):
