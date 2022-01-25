@@ -10,7 +10,7 @@ from geopy.distance import geodesic
 import ast
 import json
 
-from db import get_bidders,find_rooms,distance_calc,ended,get_template,get_t,get_distance,get_room_admin,save_param,add_room_member,add_room_members,update_bid, get_closing,get_hb,get_sign,get_hbidder, get_messages, get_room, get_room_members, get_rooms_for_user, get_user, is_room_admin, is_room_member, remove_room_members, save_message, save_room, save_user, update_room, get_room_details, get_active_rooms_by_id, get_historical_rooms_by_id
+from db import get_bidders,find_rooms,distance_calc,ended,get_template,get_t,get_distance,get_room_admin,save_param,add_room_member,add_room_members,update_bid, get_closing,get_hb,get_sign,get_hbidder, get_messages, get_room, get_room_members, get_rooms_for_user, get_user, is_room_admin, is_room_member, remove_room_members, save_message, save_room, save_user, update_room, get_room_details, get_active_rooms_by_id, get_historical_rooms_by_id, get_room_details_by_ids
 from db import JSONEncoder
 
 app = Flask(__name__)
@@ -351,7 +351,16 @@ def get_active_rooms():
     # but it should be fine for smaller amount of rooms.
     room_ids = [room['_id']['room_id'] for room in get_rooms_for_user(username)]
     rooms = list(get_active_rooms_by_id(room_ids))
-    return JSONEncoder().encode(rooms), 200
+
+    # Fetch additional information about rooms.
+    active_room_ids = [room['_id'] for room in rooms]
+    active_room_details = list(get_room_details_by_ids(active_room_ids))
+    details_lookup = { str(room['_id']): room for room in active_room_details }
+
+    # Combine room with details.
+    rooms_with_details = [{ **room, **details_lookup[str(room['_id'])] } for room in rooms ]
+
+    return JSONEncoder().encode(rooms_with_details), 200
 
 @app.route('/rooms/history', methods=['GET'])
 def get_history():
@@ -365,7 +374,16 @@ def get_history():
 
     room_ids = [room['_id']['room_id'] for room in get_rooms_for_user(username)]
     rooms = list(get_historical_rooms_by_id(room_ids))
-    return JSONEncoder().encode(rooms), 200
+
+    # Fetch additional information about rooms.
+    active_room_ids = [room['_id'] for room in rooms]
+    active_room_details = list(get_room_details_by_ids(active_room_ids))
+    details_lookup = { str(room['_id']): room for room in active_room_details }
+
+    # Combine room with details.
+    rooms_with_details = [{ **room, **details_lookup[str(room['_id'])] } for room in rooms ]
+    
+    return JSONEncoder().encode(rooms_with_details), 200
 
 @login_manager.user_loader
 def load_user(username):
