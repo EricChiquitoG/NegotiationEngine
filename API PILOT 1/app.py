@@ -307,7 +307,7 @@ def query():
 def get_room_info(room_id):
     """
     Returns the complete information about the auction. Combines the result of the
-    room, room_details, and room_members collections.
+    room, room_details, room_members, and messages (bids) collections.
 
     Errors:
     - If the privacy is not set to public it checks that the user is a part of the auction,
@@ -317,30 +317,25 @@ def get_room_info(room_id):
     app.logger.info("%s requesting auction %s information", username, room_id)
 
     room = get_room(room_id)
+    if room['privacy'] != 'public' and not is_room_member(room_id, username):
+        app.logger.error("%s not authorized to retrieve auction %s", username, room_id)
+        return { 'message': 'Not authorized to view this auction' }, 403
+
     details = get_room_details(room_id)
     members = get_room_members(room_id)
-
-    # Only allow members to get details of a non-public auction.
-    if room['privacy'] != "public":
-        found = False
-        for member in members:
-            if member['_id']['username'] == username:
-                found = True
-                break
-        if not found:
-            app.logger.error("%s not authorized to retrieve auction %s", username, room_id)
-            return { 'message': 'Not authorized to view this auction' }, 403
+    bids = get_messages(room_id)
     
     info = { **room, **details }
     info['members'] = members
+    info['bids'] = bids
 
     return JSONEncoder().encode(info), 200
 
 @app.route('/rooms/active', methods=['GET'])
 def get_active_rooms():
     """
-    Returns all the active rooms the user is a part of. Does not return the full information
-    only the "basic" information.
+    Returns all the active rooms the user is a part of. Only returns room and room details
+    information.
 
     By active it means that a winner has not been selected yet.
     """
@@ -365,7 +360,8 @@ def get_active_rooms():
 @app.route('/rooms/history', methods=['GET'])
 def get_history():
     """
-    Returns the room history for a specific user. Only returns the basic room information.
+    Returns the room history for a specific user. Only returns room and room details
+    information.
 
     The history is all rooms where a winner has been selected.
     """
