@@ -303,6 +303,14 @@ def query():
         return auctions,200
 
 
+def combine_room_with_room_details(room, room_details):
+    """
+    Helper to combine a room with room details. Keeps the room mostly intact,
+    merging the payload only with room details
+    """
+    room['payload'] = { **room['payload'], **room_details['payload'] }
+    return room
+
 @app.route('/rooms/<room_id>/info', methods=['GET'])
 def get_room_info(room_id):
     """
@@ -323,13 +331,13 @@ def get_room_info(room_id):
 
     details = get_room_details(room_id)
     members = get_room_members(room_id)
-    bids = get_messages(room_id)
+    bids = get_bidders(room_id)
     
-    info = { **room, **details }
-    info['members'] = members
-    info['bids'] = bids
+    room = combine_room_with_room_details(room, details)
+    room['members'] = members
+    room['bids'] = json.loads(bids)
 
-    return JSONEncoder().encode(info), 200
+    return JSONEncoder().encode(room), 200
 
 @app.route('/rooms/active', methods=['GET'])
 def get_active_rooms():
@@ -353,7 +361,7 @@ def get_active_rooms():
     details_lookup = { str(room['_id']): room for room in active_room_details }
 
     # Combine room with details.
-    rooms_with_details = [{ **room, **details_lookup[str(room['_id'])] } for room in rooms ]
+    rooms_with_details = [combine_room_with_room_details(room, details_lookup[str(room['_id'])]) for room in rooms ]
 
     return JSONEncoder().encode(rooms_with_details), 200
 
@@ -377,7 +385,7 @@ def get_history():
     details_lookup = { str(room['_id']): room for room in active_room_details }
 
     # Combine room with details.
-    rooms_with_details = [{ **room, **details_lookup[str(room['_id'])] } for room in rooms ]
+    rooms_with_details = [combine_room_with_room_details(room, details_lookup[str(room['_id'])]) for room in rooms ]
     
     return JSONEncoder().encode(rooms_with_details), 200
 
