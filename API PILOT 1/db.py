@@ -57,8 +57,20 @@ def get_sign(username):
 
     return user_data['sign']
 
+# New function that returns auction ids of the public ones
+def get_public():
+    public=[]
+    pub=list(rooms_collection.find({'privacy':"public"}))
+    for i in pub:
+        public.append(ObjectId(i['_id']))
+    
+    print(public)    
+    return public
+
+
 def find_rooms(room_name,reference_sector,reference_type,ongoing,user ,distance):
     filtro={}
+
 
 
     if room_name is not None: filtro['payload.room_name.val.0'] = room_name
@@ -72,6 +84,7 @@ def find_rooms(room_name,reference_sector,reference_type,ongoing,user ,distance)
     else:
         names,todos = get_distances(user,10000)
         filtro['payload.created_by.val.0']={'$in':names}
+    
     auctions=list(room_details.find(filtro))
 
     values_of_key = [a_dict['payload']['created_by']['val'][0] for a_dict in auctions]
@@ -87,15 +100,18 @@ def find_rooms(room_name,reference_sector,reference_type,ongoing,user ,distance)
                 k['payload']['distance']['val'][0]=j['dist']
 
 
-
+    pub=get_public()
     l=list(filter(lambda d: d['payload']['created_by']['val'][0] in values_of_key, auctions))
-    return(JSONEncoder().encode(l))
+    final=list(filter(lambda d: d['_id'] in pub, l))
+    return(JSONEncoder().encode(final))
 
 
 ## This function returns a list with the distances relative to the bidder to all the users and filters by distance
 def get_distances(bidder,dist):
     base=list(users_collection.find({},{'location':0}))
+    #print(base)
     for d in base:
+        #print(d['username'])
         d['dist']=distance_calc(bidder,d['username'])
         d.pop('location',None)
     filtered_users=[x for x in base if float(x['dist'])<=float(dist) and x['username']!=bidder]
@@ -346,3 +362,4 @@ def owned_auctions(user_id,owner):
     print(owned)
     return JSONEncoder().encode(owned)
 
+get_public()
