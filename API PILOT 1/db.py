@@ -309,16 +309,35 @@ def get_active_rooms_by_id(room_ids):
     """
     Retrieves active auctions by room ids
 
-    By active it means that a winner has not been selected yet, however
-    the closing date may have passed
+    By active it means that the auction has not passed the closing time yet,
+    or that a winner has not been selected yet but bids have been placed.
     """
-    return rooms_collection.find({ '_id': { '$in': room_ids }, 'payload.buyersign.val': '' })
+    return rooms_collection.find({
+        '_id': { '$in': room_ids },
+        '$or': [
+            { 'payload.closing_time.val.0': { '$gte' : datetime.now() } },
+            { '$and': [
+                { 'payload.buyersign.val.0': '' },
+                { 'payload.highest_bidder.val.0': { '$ne': '' }}
+            ]}
+        ]
+    })
 
 def get_historical_rooms_by_id(room_ids):
     """
-    Retrives historical rooms by room ids. A historical room is a room which has a winner selected.
+    Retrives historical rooms by room ids.
+    
+    A historical room is a room which is a room where the closing_time has passed,
+    and a winner has been selected, or no bids exist.
     """
-    return rooms_collection.find({ '_id': { '$in': room_ids }, 'payload.buyersign.val': { '$nin': [''] } })
+    return rooms_collection.find({
+        '_id': { '$in': room_ids },
+        'payload.closing_time.val.0': { '$lte': datetime.now() },
+        '$or': [
+            { 'payload.buyersign.val.0': { '$ne': '' } },
+            { 'payload.highest_bidder.val.0': '' }
+        ]
+    })
 
 def get_room_details_by_ids(room_ids):
     """
