@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, date
 
 from bson import ObjectId
 from pymongo import MongoClient, DESCENDING
@@ -18,7 +18,6 @@ import os
 # client = MongoClient("mongodb+srv://EricTest:test@cluster0.ozw3z.mongodb.net/myFirstDatabase?retryWrites=true&w=majority", ssl=True,ssl_cert_reqs='CERT_NONE')
 client = MongoClient(os.environ.get("DATABASE_URL"))
 
-
 chat_db = client.get_database("ChatDB")
 users_collection = chat_db.get_collection("users")
 rooms_collection = chat_db.get_collection("rooms")
@@ -29,8 +28,10 @@ room_details=chat_db.get_collection("room_details")
 
 class JSONEncoder(json.JSONEncoder):
     def default(self, o):
-        if isinstance(o, ObjectId) or isinstance(o, datetime):
+        if isinstance(o, ObjectId):
             return str(o)
+        if isinstance(o, (datetime, date)):
+            return o.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
         return json.JSONEncoder.default(self, o)
 
 
@@ -65,7 +66,7 @@ def find_rooms(room_name,reference_sector,reference_type,ongoing,user ,distance)
     if room_name is not None: filtro['payload.room_name.val.0'] = room_name
     if reference_sector is not None: filtro['payload.reference_sector.val.0'] = reference_sector
     if reference_type is not None: filtro['payload.reference_type.val.0'] = reference_type
-    if ongoing == 'True': filtro['payload.closing_time.val.0'] = {'$gte' : datetime.now() }
+    if ongoing == 'True': filtro['payload.closing_time.val.0'] = {'$gte' : datetime.utcnow() }
     # Create a filter for the distance
     if distance is not None:
         names,todos = get_distances(user,distance)
@@ -118,7 +119,7 @@ def save_room(privacy, room_name, created_by,auction_type, highest_bid,highest_b
         {'type':'auction','_id':ObjectId(),'privacy':privacy,
         'payload':{'name': {'val':[room_name]},
                  'created_by': {'val':[created_by]}, 
-                 'created_at': {'val':[datetime.now()]},
+                 'created_at': {'val':[datetime.utcnow()]},
                  'auction_type':{'val':[auction_type]}, 
                  'highest_bid':{'val':[highest_bid]},
                  'highest_bidder':{'val':[highest_bidder]},
@@ -154,13 +155,13 @@ def get_room(room_id):
 def add_room_member(room_id, room_name, username, added_by, is_room_admin=False):
     room_members_collection.insert_one(
         {'_id': {'room_id': ObjectId(room_id), 'username': username}, 'room_name': room_name, 'added_by': added_by,
-         'added_at': datetime.now(), 'is_room_admin': is_room_admin})
+         'added_at': datetime.utcnow(), 'is_room_admin': is_room_admin})
 
 
 def add_room_members(room_id, room_name, usernames, added_by):
     room_members_collection.insert_many(
         [{'_id': {'room_id': ObjectId(room_id), 'username': username}, 'room_name': room_name, 'added_by': added_by,
-          'added_at': datetime.now(), 'is_room_admin': False} for username in usernames])
+          'added_at': datetime.utcnow(), 'is_room_admin': False} for username in usernames])
 
 ### Get the highest bids in current auction for each active user
 def get_bidders(room_id):
@@ -242,7 +243,7 @@ def save_message(room_id, text, sender, sign,distance):
     messages_collection.insert_one({'type':'bid','_id':ObjectId(), 'room_id': room_id, 
                                 'payload': {'text':{'val':[text]}, 
                                 'sender': {'val':[sender]}, 
-                                'created_at': {'val':[datetime.now()]},
+                                'created_at': {'val':[datetime.utcnow()]},
                                 'sign':{'val':[sign]},
                                 'distance':{'val':[distance]}}})
 
@@ -315,7 +316,7 @@ def get_active_rooms_by_id(room_ids):
     return rooms_collection.find({
         '_id': { '$in': room_ids },
         '$or': [
-            { 'payload.closing_time.val.0': { '$gte' : datetime.now() } },
+            { 'payload.closing_time.val.0': { '$gte' : datetime.utcnow() } },
             { '$and': [
                 { 'payload.buyersign.val.0': '' },
                 { 'payload.highest_bidder.val.0': { '$ne': '' }}
@@ -332,7 +333,7 @@ def get_historical_rooms_by_id(room_ids):
     """
     return rooms_collection.find({
         '_id': { '$in': room_ids },
-        'payload.closing_time.val.0': { '$lte': datetime.now() },
+        'payload.closing_time.val.0': { '$lte': datetime.utcnow() },
         '$or': [
             { 'payload.buyersign.val.0': { '$ne': '' } },
             { 'payload.highest_bidder.val.0': '' }

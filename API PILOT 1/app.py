@@ -9,6 +9,7 @@ from string import Template
 from geopy.distance import geodesic
 import ast
 import json
+import dateutil.parser
 
 from db import get_bidders,find_rooms,distance_calc,ended,get_template,get_t,get_distance,get_room_admin,save_param,add_room_member,add_room_members,update_bid, get_closing,get_hb,get_sign,get_hbidder, get_messages, get_room, get_room_members, get_rooms_for_user, get_user, is_room_admin, is_room_member, remove_room_members, save_message, save_room, save_user, update_room, get_room_details, get_active_rooms_by_id, get_historical_rooms_by_id, get_room_details_by_ids
 from db import JSONEncoder
@@ -89,7 +90,7 @@ def create_room():
         highest_bidder=''
         auction_type=request.form.get('auction_type')
         print(request.form.get('closing_time'))
-        closing_time=datetime.strptime(request.form.get('closing_time'), '%Y-%m-%dT%H:%M:%S')
+        closing_time=dateutil.parser.isoparse(request.form.get('closing_time'))
         reference_sector=request.form.get('reference_sector')
         reference_type=request.form.get('reference_type')
         quantity=request.form.get('quantity')
@@ -191,7 +192,7 @@ def chat(room_id):
         
         if request.method=='POST':
             bid=request.form.get("message_input")
-            if (closing_time)>datetime.now():
+            if (closing_time)>datetime.utcnow():
                 print(is_room_admin(room_id,user))
                 if(is_room_admin(room_id,user)==0):
                     app.logger.info("{} has summited a new bid to the room {}: {}".format(user,
@@ -251,7 +252,7 @@ def winner(room_id):
         
         if(is_room_admin(room_id,user)==1):
             
-            if (closing_time)>datetime.now(): #Auction hasnt ended
+            if (closing_time)>datetime.utcnow(): #Auction hasnt ended
                     return{"message":"The specified auction hasnt ended"},400
             if get_hbidder(room_id)=='': ## This would mean the auction doesnt have a winner yet
                 winner=request.form.get("winner") #Should be username
