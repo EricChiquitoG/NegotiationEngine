@@ -314,11 +314,26 @@ def get_active_rooms_by_id(room_ids):
     """
     return rooms_collection.find({ '_id': { '$in': room_ids }, 'payload.buyersign.val': '' })
 
+def get_number_of_active_rooms_by_id(room_ids):
+    """
+    Retrieves total number of active auctions by rooom ids.
+
+    By active it means that a winner has not been selected yet, however
+    the closing date may have passed
+    """
+    return rooms_collection.find({ '_id': { '$in': room_ids }, 'payload.buyersign.val': '' }).count()
+
 def get_historical_rooms_by_id(room_ids):
     """
     Retrives historical rooms by room ids. A historical room is a room which has a winner selected.
     """
     return rooms_collection.find({ '_id': { '$in': room_ids }, 'payload.buyersign.val': { '$nin': [''] } })
+
+def get_number_historical_rooms_by_id(room_ids):
+    """
+    Retrives total number of historical rooms by room ids. A historical room is a room which has a winner selected.
+    """
+    return rooms_collection.find({ '_id': { '$in': room_ids }, 'payload.buyersign.val': { '$nin': [''] } }).count()
 
 def get_room_details_by_ids(room_ids):
     """
