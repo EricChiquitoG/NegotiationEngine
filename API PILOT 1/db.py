@@ -349,6 +349,14 @@ def get_historical_rooms_by_id(room_ids):
         ]
     })
 
+def get_all_rooms_by_id(room_ids):
+    """
+    Retrives rooms by room ids.
+    """
+    return rooms_collection.find({
+        '_id': { '$in': room_ids }
+    })
+
 def get_number_historical_rooms_by_id(room_ids):
     """
     Retrives total number of historical rooms by room ids. A historical room is a room which has a winner selected.
