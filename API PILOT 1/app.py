@@ -226,7 +226,7 @@ def chat(room_id):
 
                 body = {"Bids": d}
                 
-                return jsonify(body),200
+                return JSONEncoder().encode(body), 200
 
     else:
         return "Room not found or user is not member", 404

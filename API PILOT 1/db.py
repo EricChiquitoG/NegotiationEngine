@@ -285,8 +285,8 @@ def get_messages(room_id, page=0):
    
     messages = list(
         messages_collection.find({'room_id': room_id}))
-    for message in messages:
-        message['payload']['created_at']['val'][0] = message['payload']['created_at']['val'][0].strftime("%d %b, %H:%M:%S")
+    #for message in messages:
+    #    message['payload']['created_at']['val'][0] = message['payload']['created_at']['val'][0].strftime("%d %b, %H:%M:%S")
     return messages
 
 
