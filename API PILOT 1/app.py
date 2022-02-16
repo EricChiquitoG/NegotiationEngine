@@ -1,4 +1,6 @@
 from datetime import datetime
+from dis import dis
+from turtle import distance
 
 from bson.json_util import dumps
 from flask import Flask, render_template, request, redirect, url_for, jsonify
@@ -11,8 +13,15 @@ import ast
 import json
 import dateutil.parser
 
-from db import get_bidders,find_rooms,distance_calc,ended,get_template,get_t,get_distance,get_room_admin,save_param,add_room_member,add_room_members,update_bid, get_closing,get_hb,get_sign,get_hbidder, get_messages, get_room, get_room_members, get_rooms_for_user, get_user, is_room_admin, is_room_member, remove_room_members, save_message, save_room, save_user, update_room, get_room_details, get_active_rooms_by_id, get_historical_rooms_by_id, get_room_details_by_ids, get_number_of_active_rooms_by_id, get_number_historical_rooms_by_id,get_all_rooms_by_id
+from db import neg_info, save_param2,sign_contract,change_status, get_neg,owned_auctions,get_bidders,find_rooms,distance_calc,
+    ended,get_template,get_t,get_distance,get_room_admin,save_param,add_room_member,add_room_members, save_room2,update_bid,
+    get_closing,get_hb,get_sign,get_hbidder, get_messages, get_room, get_room_members, get_rooms_for_user, get_user, is_room_admin,
+    is_room_member, remove_room_members, save_message, save_room, save_user, update_room, get_room_details, get_active_rooms_by_id,
+    get_historical_rooms_by_id, get_room_details_by_ids, get_number_of_active_rooms_by_id, get_number_historical_rooms_by_id,get_all_rooms_by_id
+
 from db import JSONEncoder
+
+
 
 app = Flask(__name__)
 
@@ -304,6 +313,118 @@ def query():
         return auctions,200
 
 
+@app.route('/myrooms/admin',methods=['GET'])
+def myauct_a():
+    if request.method=='GET':
+        user=request.authorization.username
+        owner=True
+        auct=owned_auctions(user,owner)
+        return auct,200 
+
+
+@app.route('/myrooms/user',methods=['GET'])
+def myauct_u():
+    if request.method=='GET':
+        user=request.authorization.username
+        owner=False
+        auct=owned_auctions(user,owner)
+        return auct,200 
+
+
+# Start negotiation: 
+# To be done: Verify validity of inputs, for example, x permision for y database is possible
+
+@app.route("/negotiate", methods=['POST'])
+def new_neg():
+
+    room_name = request.form.get('room_name')
+    bid=request.form.get('price')
+    bidder=request.authorization.username
+    seller=request.form.get('seller')
+    reference_sector=request.form.get('reference_sector')
+    reference_type=request.form.get('reference_type')
+    quantity=request.form.get('quantity')
+    articleno=request.form.get('articleno')
+    user=request.authorization.username
+    print(user)
+    buyersign=get_sign(user)
+    sellersign=''
+    templatetype=request.form.get('templatetype')
+    distance=distance_calc(bidder,seller)
+    print('wtf')
+    #The following function may be changed to iterate if multiple roles are requested
+    room_id=save_room2(room_name,bidder,seller,bidder,sellersign,buyersign,templatetype,bid,distance)
+    save_param2(room_id,user,room_name,reference_sector,reference_type,quantity,articleno)
+    return {"message":"The negotiation with id {} has been created".format(str(room_id))},200
+
+
+
+# This is once the negotiation has been created 
+@app.route("/negotiate/<neg_id>", methods=['GET','POST'])
+def neg(neg_id):
+    user=request.authorization.username
+    req=get_neg(neg_id)
+    rn=req['payload']['name']['val'][0]
+    if request.method == 'POST':
+        if user in (req['payload']['seller']['val'][0],req['payload']['created_by']['val'][0]):
+            if req['payload']['status']['val'][0] not in ('accepted', 'rejected'):
+                bid=request.form.get('bid')
+                distance=distance_calc(user,get_room_admin(rn))
+                save_message(str(req['_id']),bid,user,get_sign(user),distance)
+                change_status(neg_id,1,user,bid)
+                return  {"message":"New offer submited for request with id {}".format(str(req['_id']))},200
+            else:
+                return  {"message":"The negotiation {} has concluded no more offers can be made".format(str(req['_id']))},403
+        else:
+            return{"message":'You are not part of the current negotiation'}, 403
+    elif (request.method=='GET'):
+        if req['payload']['status']['val'][0]=='accepted':
+            s=sign_contract(neg_id)
+            print(s)
+            return  {"Contract": "{}".format(s)},200
+        else:
+            return(neg_info(neg_id)),200
+
+
+# Only accesible to the owner of such resource, this route accepts the negotiation and begins the contract signing
+@app.route("/negotiate/<req_id>/accept", methods=['GET'])
+
+def accept(req_id):
+    user=request.authorization.username
+    req=get_neg(req_id)
+    if user==req['payload']['offer_user']['val'][0]:
+        if (user == req['payload']['created_by']['val'][0]) or ((user == req['payload']['seller']['val'][0])):
+            flag=change_status(req_id, 'accept',user,0)
+            #print(flag)
+            ## Add function for contract writing
+            if flag: 
+                return  {"message":"The negotiation with id {} has been accepted.".format(str(req['_id']))},200
+            else:
+                return  {"message":"Could not process request, either the accepted auction is already finished or it was declined.".format(str(req['_id']))},200
+        else: return {"message":'You are not authorized to perform this task'},403
+    else: return {"message":'Wait for the other peer to accept or counter offer'},403
+
+
+
+# Only accesible to the owner of such resource, this route cancels the negotiation.
+@app.route("/negotiate/<req_id>/cancel", methods=['GET'])
+
+def cancel(req_id):
+    req=get_neg(req_id)
+    user=request.authorization.username
+    if user==req['payload']['offer_user']['val'][0]:
+        if (user == req['payload']['created_by']['val'][0]) or ((user == req['payload']['seller']['val'][0])):
+            flag=change_status(req_id, 'reject',user,0)
+            #print(flag)
+            ## Add function for contract writing
+            if flag: 
+                return  {"message":"The negotiation with id {} has been rejected.".format(str(req['_id']))},200
+            else:
+                return  {"message":"Could not process request, either the accepted auction is already finished or it was declined.".format(str(req['_id']))},200
+        else: return {"message":'You are not authorized to perform this task'},403
+    else: return {"message":'You are not allowed to cancel this transaction'},403
+
+
 def combine_room_with_room_details(room, room_details):
     """
     Helper to combine a room with room details. Keeps the room mostly intact,
@@ -311,6 +432,7 @@ def combine_room_with_room_details(room, room_details):
     """
     room['payload'] = { **room['payload'], **room_details['payload'] }
     return room
+
 
 @app.route('/rooms/<room_id>/info', methods=['GET'])
 def get_room_info(room_id):
@@ -339,6 +461,7 @@ def get_room_info(room_id):
     room['bids'] = json.loads(bids)
 
     return JSONEncoder().encode(room), 200
+
 
 @app.route('/rooms/active', methods=['GET'])
 def get_active_rooms():
@@ -400,6 +523,7 @@ def combine_room_with_room_details_and_bids(room, room_details, bids):
     room['payload'] = { **room['payload'], **room_details['payload'] }
     room['bids'] = bids
     return room
+
 
 @app.route('/rooms/all', methods=['GET'])
 def get_all_rooms():
