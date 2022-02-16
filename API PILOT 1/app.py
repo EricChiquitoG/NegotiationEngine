@@ -13,18 +13,16 @@ import ast
 import json
 import dateutil.parser
 
-from db import neg_info, save_param2,sign_contract,change_status, get_neg,owned_auctions,get_bidders,find_rooms,distance_calc,
+from db import (
+    neg_info, save_param2,sign_contract,change_status, get_neg,owned_auctions,get_bidders,find_rooms,distance_calc,
     ended,get_template,get_t,get_distance,get_room_admin,save_param,add_room_member,add_room_members, save_room2,update_bid,
     get_closing,get_hb,get_sign,get_hbidder, get_messages, get_room, get_room_members, get_rooms_for_user, get_user, is_room_admin,
-    is_room_member, remove_room_members, save_message, save_room, save_user, update_room, get_room_details, get_active_rooms_by_id,
-    get_historical_rooms_by_id, get_room_details_by_ids, get_number_of_active_rooms_by_id, get_number_historical_rooms_by_id,get_all_rooms_by_id
-
+    is_room_member, remove_room_members, save_message, save_room, save_user, update_room, get_room_details, get_room_details_by_ids,
+    get_all_rooms_by_id, get_rooms_by_username
+)
 from db import JSONEncoder
 
-
-
 app = Flask(__name__)
-
 
 cors = CORS(app)
 app.secret_key = "sfdjkafnk"
@@ -463,58 +461,6 @@ def get_room_info(room_id):
     return JSONEncoder().encode(room), 200
 
 
-@app.route('/rooms/active', methods=['GET'])
-def get_active_rooms():
-    """
-    Returns all the active rooms the user is a part of. Only returns room and room details
-    information.
-
-    By active it means that a winner has not been selected yet.
-    """
-    username = request.authorization.username
-    app.logger.info("%s requesting all current auctions the user is part of", username)
-
-    # This isn't ideal since it gets ALL the rooms the user is a part of. Even historical,
-    # but it should be fine for smaller amount of rooms.
-    room_ids = [room['_id']['room_id'] for room in get_rooms_for_user(username)]
-    rooms = list(get_active_rooms_by_id(room_ids))
-
-    # Fetch additional information about rooms.
-    active_room_ids = [room['_id'] for room in rooms]
-    active_room_details = list(get_room_details_by_ids(active_room_ids))
-    details_lookup = { str(room['_id']): room for room in active_room_details }
-
-    # Combine room with details.
-    rooms_with_details = [combine_room_with_room_details(room, details_lookup[str(room['_id'])]) for room in rooms ]
-
-    return JSONEncoder().encode(rooms_with_details), 200
-
-
-@app.route('/rooms/history', methods=['GET'])
-def get_history():
-    """
-    Returns the room history for a specific user. Only returns room and room details
-    information.
-
-    The history is all rooms where a winner has been selected.
-    """
-    username = request.authorization.username
-    app.logger.info("%s requesting all historical auctions the user is part of", username)
-
-    room_ids = [room['_id']['room_id'] for room in get_rooms_for_user(username)]
-    rooms = list(get_historical_rooms_by_id(room_ids))
-
-    # Fetch additional information about rooms.
-    active_room_ids = [room['_id'] for room in rooms]
-    active_room_details = list(get_room_details_by_ids(active_room_ids))
-    details_lookup = { str(room['_id']): room for room in active_room_details }
-
-    # Combine room with details.
-    rooms_with_details = [combine_room_with_room_details(room, details_lookup[str(room['_id'])]) for room in rooms ]
-    
-    return JSONEncoder().encode(rooms_with_details), 200
-
-
 def combine_room_with_room_details_and_bids(room, room_details, bids):
     """
     Helper to combine a room with room details. Keeps the room mostly intact,
@@ -535,7 +481,7 @@ def get_all_rooms():
 
     # This isn't ideal since it gets ALL the rooms the user is a part of. Even historical,
     # but it should be fine for smaller amount of rooms.
-    room_ids = [room['_id']['room_id'] for room in get_rooms_for_user(username)]
+    room_ids = get_rooms_by_username(username)
     rooms = list(get_all_rooms_by_id(room_ids))
 
     # Fetch additional information about rooms.
@@ -549,23 +495,6 @@ def get_all_rooms():
     rooms_with_details = [combine_room_with_room_details_and_bids(room, details_lookup[str(room['_id'])], bids_lookup[str(room['_id'])]) for room in rooms ]
 
     return JSONEncoder().encode(rooms_with_details), 200
-
-
-@app.route('/rooms/stats/<username>', methods=['GET'])
-def get_stats(username):
-    """
-    Returns the total amount of rooms a user have participated in and
-    returns the total amount of active rooms a user is participating in. 
-
-    """
-    app.logger.info("%s requesting total amount of current and historic rooms for a specific user", username)
-
-    room_ids = [room['_id']['room_id'] for room in get_rooms_for_user(username)]
-    stats = {}
-    stats['historic'] = get_number_historical_rooms_by_id(room_ids)
-    stats['active'] = get_number_of_active_rooms_by_id(room_ids)
-    
-    return JSONEncoder().encode(stats), 200
 
 
 @login_manager.user_loader

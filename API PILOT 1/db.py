@@ -521,53 +521,18 @@ def neg_info(neg_id):
     return JSONEncoder().encode(owned)
 
 
+def get_rooms_by_username(username):
+    """
+    Returns all rooms the user is apart of
+    """
+    room_list = list(room_members_collection.find({ '_id.username': username }))
+    room_ids = [room['_id']['room_id'] for room in room_list]
+    return room_ids
 
 
 def get_room_details(room_id):
     return room_details.find_one({ '_id': ObjectId(room_id) })
 
-def get_active_rooms_by_id(room_ids):
-    """
-    Retrieves active auctions by room ids
-
-    By active it means that the auction has not passed the closing time yet,
-    or that a winner has not been selected yet but bids have been placed.
-    """
-    return rooms_collection.find({
-        '_id': { '$in': room_ids },
-        '$or': [
-            { 'payload.closing_time.val.0': { '$gte' : datetime.utcnow() } },
-            { '$and': [
-                { 'payload.buyersign.val.0': '' },
-                { 'payload.highest_bidder.val.0': { '$ne': '' }}
-            ]}
-        ]
-    })
-
-def get_number_of_active_rooms_by_id(room_ids):
-    """
-    Retrieves total number of active auctions by rooom ids.
-
-    By active it means that a winner has not been selected yet, however
-    the closing date may have passed
-    """
-    return rooms_collection.find({ '_id': { '$in': room_ids }, 'payload.buyersign.val': '' }).count()
-
-def get_historical_rooms_by_id(room_ids):
-    """
-    Retrives historical rooms by room ids.
-    
-    A historical room is a room which is a room where the closing_time has passed,
-    and a winner has been selected, or no bids exist.
-    """
-    return rooms_collection.find({
-        '_id': { '$in': room_ids },
-        'payload.closing_time.val.0': { '$lte': datetime.utcnow() },
-        '$or': [
-            { 'payload.buyersign.val.0': { '$ne': '' } },
-            { 'payload.highest_bidder.val.0': '' }
-        ]
-    })
 
 def get_all_rooms_by_id(room_ids):
     """
@@ -577,11 +542,6 @@ def get_all_rooms_by_id(room_ids):
         '_id': { '$in': room_ids }
     })
 
-def get_number_historical_rooms_by_id(room_ids):
-    """
-    Retrives total number of historical rooms by room ids. A historical room is a room which has a winner selected.
-    """
-    return rooms_collection.find({ '_id': { '$in': room_ids }, 'payload.buyersign.val': { '$nin': [''] } }).count()
 
 def get_room_details_by_ids(room_ids):
     """
