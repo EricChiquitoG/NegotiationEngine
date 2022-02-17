@@ -1,7 +1,7 @@
 from codecs import ignore_errors
 
 from datetime import datetime, date
-from turtle import distance
+#from turtle import distance
 
 from bson import ObjectId
 from pymongo import MongoClient, DESCENDING
