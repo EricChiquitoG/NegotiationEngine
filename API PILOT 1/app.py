@@ -386,41 +386,42 @@ def neg(neg_id):
 
 # Only accesible to the owner of such resource, this route accepts the negotiation and begins the contract signing
 @app.route("/negotiate/<req_id>/accept", methods=['GET'])
-
 def accept(req_id):
     user=request.authorization.username
     req=get_neg(req_id)
-    if user==req['payload']['offer_user']['val'][0]:
+    if user != req['payload']['offer_user']['val'][0]:
         if (user == req['payload']['created_by']['val'][0]) or ((user == req['payload']['seller']['val'][0])):
             flag=change_status(req_id, 'accept',user,0)
-            #print(flag)
+            
             ## Add function for contract writing
             if flag: 
                 return  {"message":"The negotiation with id {} has been accepted.".format(str(req['_id']))},200
             else:
                 return  {"message":"Could not process request, either the accepted auction is already finished or it was declined.".format(str(req['_id']))},200
-        else: return {"message":'You are not authorized to perform this task'},403
-    else: return {"message":'Wait for the other peer to accept or counter offer'},403
-
+        else:
+            return {"message":'You are not authorized to perform this task'},403
+    else:
+        return {"message":'Wait for the other peer to accept or counter offer'},403
 
 
 # Only accesible to the owner of such resource, this route cancels the negotiation.
 @app.route("/negotiate/<req_id>/cancel", methods=['GET'])
-
 def cancel(req_id):
     req=get_neg(req_id)
     user=request.authorization.username
-    if user==req['payload']['offer_user']['val'][0]:
+    if user != req['payload']['offer_user']['val'][0]:
         if (user == req['payload']['created_by']['val'][0]) or ((user == req['payload']['seller']['val'][0])):
             flag=change_status(req_id, 'reject',user,0)
-            #print(flag)
+
             ## Add function for contract writing
             if flag: 
                 return  {"message":"The negotiation with id {} has been rejected.".format(str(req['_id']))},200
             else:
                 return  {"message":"Could not process request, either the accepted auction is already finished or it was declined.".format(str(req['_id']))},200
-        else: return {"message":'You are not authorized to perform this task'},403
-    else: return {"message":'You are not allowed to cancel this transaction'},403
+        else:
+            return {"message":'You are not authorized to perform this task'},403
+    else:
+        return {"message":'You are not allowed to cancel this transaction'},403
 
 
 def combine_room_with_room_details(room, room_details):
