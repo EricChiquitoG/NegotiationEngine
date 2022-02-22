@@ -521,6 +521,31 @@ def neg_info(neg_id):
     return JSONEncoder().encode(owned)
 
 
+def flatten_negotiation(n):
+    return {
+        '_id': n['_id'],
+        'name': n['payload']['name']['val'][0],
+        'created_by': n['payload']['created_by']['val'][0],
+        'seller': n['payload']['seller']['val'][0],
+        'created_at': n['payload']['created_at']['val'][0],
+        'end_date': n['payload']['end_date']['val'][0],
+        'current_offer': n['payload']['current_offer']['val'][0],
+        'offer_user': n['payload']['offer_user']['val'][0],
+        'status': n['payload']['status']['val'][0],
+    }
+
+
+def get_negotiations_by_username(username):
+    negotiations = nego.find({
+        '$or': [
+            { 'payload.created_by.val.0': username },
+            { 'payload.seller.val.0': username },
+        ]
+    })
+
+    return list(map(flatten_negotiation, negotiations))
+
+
 def get_rooms_by_username(username):
     """
     Returns all rooms the user is apart of

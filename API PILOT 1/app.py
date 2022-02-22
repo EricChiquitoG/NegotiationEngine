@@ -18,7 +18,7 @@ from db import (
     ended,get_template,get_t,get_distance,get_room_admin,save_param,add_room_member,add_room_members, save_room2,update_bid,
     get_closing,get_hb,get_sign,get_hbidder, get_messages, get_room, get_room_members, get_rooms_for_user, get_user, is_room_admin,
     is_room_member, remove_room_members, save_message, save_room, save_user, update_room, get_room_details, get_room_details_by_ids,
-    get_all_rooms_by_id, get_rooms_by_username
+    get_all_rooms_by_id, get_rooms_by_username, get_negotiations_by_username
 )
 from db import JSONEncoder
 
@@ -422,6 +422,18 @@ def cancel(req_id):
             return {"message":'You are not authorized to perform this task'},403
     else:
         return {"message":'You are not allowed to cancel this transaction'},403
+
+
+@app.route("/negotiate/list", methods=["GET"])
+def list():
+    """
+    Gets a list of all the negotiations a user is part of.
+    """
+    username = request.authorization.username
+    app.logger.info("%s requesting negotiation list", username)
+
+    negotiations = get_negotiations_by_username(username)
+    return JSONEncoder().encode(negotiations), 200
 
 
 def combine_room_with_room_details(room, room_details):
