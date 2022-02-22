@@ -381,7 +381,7 @@ def save_room2(room_name, created_by,seller,highest_bidder,sellersign,buyersign,
         'payload':{'name': {'val':[room_name]},
                  'created_by': {'val':[created_by]}, 
                  'seller': {'val':[seller]}, 
-                 'created_at': {'val':[datetime.now()]},
+                 'created_at': {'val':[datetime.utcnow()]},
                  'end_date': {'val':[None]},
                  'current_offer':{'val':[bid]},
                  'offer_user':{'val':[highest_bidder]},
@@ -416,13 +416,13 @@ def change_status(req_id, flag,user,offer):
     access_request=get_neg(req_id)
     
     if flag=='accept' and (access_request['payload']['status']['val'][0]!='accepted' and access_request['payload']['status']['val'][0]!='rejected'):
-        nego.update_one({'_id':ObjectId(req_id)}, {'$set': {'payload.status.val.0': 'accepted','payload.end_date.val.0': datetime.now(),'payload.sellersign.val.0':get_sign(access_request['payload']['seller']['val'][0])}})
+        nego.update_one({'_id':ObjectId(req_id)}, {'$set': {'payload.status.val.0': 'accepted','payload.end_date.val.0': datetime.utcnow(),'payload.sellersign.val.0':get_sign(access_request['payload']['seller']['val'][0])}})
         print(access_request['payload']['status']['val'][0])
         print(access_request['payload']['status']['val'][0] != 'accepted')
         return(True)
 
     elif flag=='reject' and (access_request['payload']['status']['val'][0]!='accepted' and access_request['payload']['status']['val'][0]!='rejected'):
-        nego.update_one({'_id':ObjectId(req_id)}, {'$set': {'payload.status.val.0': 'rejected','payload.end_date.val.0': datetime.now()}})
+        nego.update_one({'_id':ObjectId(req_id)}, {'$set': {'payload.status.val.0': 'rejected','payload.end_date.val.0': datetime.utcnow()}})
         print('rejected')
         return(True)
     elif access_request['payload']['status']['val'][0]=='accepted' or access_request['payload']['status']['val'][0]=='rejected':
