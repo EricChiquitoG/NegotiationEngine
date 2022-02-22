@@ -18,7 +18,7 @@ from db import (
     ended,get_template,get_t,get_distance,get_room_admin,save_param,add_room_member,add_room_members, save_room2,update_bid,
     get_closing,get_hb,get_sign,get_hbidder, get_messages, get_room, get_room_members, get_rooms_for_user, get_user, is_room_admin,
     is_room_member, remove_room_members, save_message, save_room, save_user, update_room, get_room_details, get_room_details_by_ids,
-    get_all_rooms_by_id, get_rooms_by_username, get_negotiations_by_username
+    get_all_rooms_by_id, get_rooms_by_username, get_negotiations_by_username, create_contract, get_contract, list_contracts
 )
 from db import JSONEncoder
 
@@ -508,6 +508,80 @@ def get_all_rooms():
     rooms_with_details = [combine_room_with_room_details_and_bids(room, details_lookup[str(room['_id'])], bids_lookup[str(room['_id'])]) for room in rooms ]
 
     return JSONEncoder().encode(rooms_with_details), 200
+
+
+@app.route("/contracts/create", methods=["POST"])
+def route_create_contract():
+    """
+    Create a new contract.
+
+    This is expected to be used by site administrators only.
+
+    Expects:
+    ```json
+    {
+        "title": "contract title",
+        "body": "contract body, can use $identifier for templated data"
+    }
+    ```
+    """
+    body = {
+        "title": request.json.get("title"),
+        "body": request.json.get("body"),
+    }
+    for (key, value) in body.items():
+        if value is None:
+            return { "message": "{} must be present".format(key) }, 400
+    
+    app.logger.info("creating contract %s: %s", body["title"], body["body"])
+
+    id = create_contract(**body)
+    return {
+        "message": "successfully created contract",
+        "id": str(id),
+    }, 200
+
+
+@app.route("/contracts/<id>", methods=["GET"])
+def route_get_contract(id):
+    """
+    Returns the complete information about a single contract.
+
+    Example response:
+    ```json
+    {
+        "_id": "",
+        "title": "",
+        "body": ""
+    }
+    ```
+    """
+    app.logger.info("get contract %s", id)
+    contract = get_contract(id)
+    if contract is None:
+        return { "message": "contract not found" }, 404
+    
+    return JSONEncoder().encode(contract), 200
+
+
+@app.route("/contracts/list", methods=["GET"])
+def route_list_contracts():
+    """
+    Returns a list of all contracts, containing only the id and the title.
+
+    Example response:
+    ```json
+    [
+        {
+            "_id": "",
+            "title": ""
+        }
+    ]
+    ```
+    """
+    app.logger.info("list all contracts")
+    contracts = list_contracts()
+    return JSONEncoder().encode(contracts), 200
 
 
 @login_manager.user_loader
