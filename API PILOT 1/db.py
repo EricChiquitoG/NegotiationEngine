@@ -588,29 +588,30 @@ def create_contract(title, body):
     return id
 
 
+def convert_contract(contract):
+    """
+    Map a contract from the DB format to what we want to send back
+    """
+    return {
+        "_id": contract["_id"],
+        "title": contract["temp_type"],
+        "body": contract["temp"],
+    }
+
+
 def get_contract(id):
     """
     Gets the complete information about a single contract.
     """
     contract = templates_collection.find_one({ "_id": ObjectId(id) })
     if contract is not None:
-        return {
-            "_id": contract["_id"],
-            "title": contract["temp_type"],
-            "body": contract["temp"],
-        }
+        return convert_contract(contract)
     return None
 
 
 def list_contracts():
     """
-    Returns a list of all contracts containing their id and title.
+    Returns a list of all contracts.
     """
-    def convert(contract):
-        return {
-            "_id": contract["_id"],
-            "title": contract["temp_type"],
-        }
-    
     contracts = templates_collection.find({})
-    return list(map(convert, contracts))
+    return list(map(convert_contract, contracts))
