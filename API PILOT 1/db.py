@@ -52,7 +52,7 @@ def save_user(username, email, password,sign,location):
     password_hash = generate_password_hash(password)
     salt = uuid.uuid4().hex
     hashsign = hashlib.sha256(salt.encode() + password.encode()).hexdigest() + ':' + salt
-    print(type(location),location)
+    
     users_collection.insert_one({'type':'user','_id': ObjectId(),'username':username, 'email': email, 'password': password_hash,'sign':hashsign,'location':location})
 
 
@@ -72,7 +72,6 @@ def get_public():
     for i in pub:
         public.append(ObjectId(i['_id']))
     
-    print(public)    
     return public
 
 
@@ -101,10 +100,8 @@ def find_rooms(room_name,reference_sector,reference_type,ongoing,user ,distance)
 
         for j in todos:
             if k['payload']['created_by']['val'][0] in j.values():
-                print(k)
                 to_append={'distance':{'val':['test']}}
                 k['payload'].update(to_append)
-                print(k)
                 k['payload']['distance']['val'][0]=j['dist']
 
 
@@ -117,18 +114,14 @@ def find_rooms(room_name,reference_sector,reference_type,ongoing,user ,distance)
 ## This function returns a list with the distances relative to the bidder to all the users and filters by distance
 def get_distances(bidder,dist):
     base=list(users_collection.find({},{'location':0}))
-    #print(base)
     for d in base:
-        #print(d['username'])
         d['dist']=distance_calc(bidder,d['username'])
         d.pop('location',None)
     filtered_users=[x for x in base if float(x['dist'])<=float(dist) and x['username']!=bidder]
     my_list = list(map(lambda x: x['username'], filtered_users))
     for d in filtered_users:
         d['created_by']=d.pop('username')
-    #print(my_list,filtered_users)
     l=list(filter(lambda d: d['created_by'] in my_list, filtered_users))
-    #print(l)
     return my_list,filtered_users
 
 
@@ -269,7 +262,6 @@ def save_message(room_id, text, sender, sign,distance):
 
 def get_hb(room_id,username):   #Custom function that gets the highest bid value for a particular auction entry
     bidders=json.loads(get_bidders(room_id))
-    print(bidders)
     output_dict = [x for x in bidders if x['sender'] == username]
     return json.dumps(output_dict)
 
@@ -314,12 +306,10 @@ def ended(room_id):
     
     highest_bid=get_room(room_id)['payload']['highest_bid']['val'][0]
     highest_bidder=get_hbidder(room_id)
-    print(highest_bid)
     if highest_bidder:
         template=Template(get_template(room_id))
         room=rooms_collection.find_one({'_id': ObjectId(room_id)})
         room_d=room_details.find_one({'_id': ObjectId(room_id)})
-        print(room,room_d)
         d=dict(buyer=room['payload']['highest_bidder']['val'][0],quantity=room_d['payload']['quantity']['val'][0], item=room_d['payload']['articleno']['val'][0],ammount=highest_bid,date=room['payload']['closing_time']['val'][0],owner=room['payload']['created_by']['val'][0],buyersign=room['payload']['buyersign']['val'][0],sellersign=room['payload']['sellersign']['val'][0])
         signed_c=template.safe_substitute(d)
         return(signed_c)
@@ -346,13 +336,13 @@ def owned_auctions(user_id,owner):
         auction_id=(get_rooms_for_admin(user_id))
     else:
         auction_id=(get_rooms_for_user(user_id))
-    #print(auction_id)
+        
     keys=['_id','name','auction_type','created_by','created_at','closing_time','highest_bid']
     owned=[]
     d={}
 
     auctions=list(rooms_collection.find({'_id':{'$in':auction_id}}))
-    #print(auctions)
+    
     for i in auctions:
         d.update({'_id':i['_id']})
         d.update({'name':i['payload']['name']['val'][0]})
@@ -366,7 +356,6 @@ def owned_auctions(user_id,owner):
         owned.append(d2)
         
 
-    print(owned)
     return JSONEncoder().encode(owned)
 
 # Negotiations____________________________________________
@@ -375,7 +364,6 @@ def get_neg(room_id):
     return nego.find_one({'_id': ObjectId(room_id)})
 
 def save_room2(room_name, created_by,seller,highest_bidder,sellersign,buyersign,templatetype, bid,distance):
-    print("entra?")
     room_id = nego.insert_one(
         {'type':'negotiation','_id':ObjectId(),'privacy':'private',
         'payload':{'name': {'val':[room_name]},
@@ -389,7 +377,6 @@ def save_room2(room_name, created_by,seller,highest_bidder,sellersign,buyersign,
                  'buyersign':{'val':[buyersign]},
                  'templatetype':{'val':[templatetype]},
                  'status':{'val':['submitted']}}}).inserted_id
-    print('flagfunct')
     add_room_member(room_id, room_name, created_by, created_by, is_room_admin=True)
     save_message(room_id,bid,created_by,buyersign,distance)
     return room_id
@@ -417,13 +404,12 @@ def change_status(req_id, flag,user,offer):
     
     if flag=='accept' and (access_request['payload']['status']['val'][0]!='accepted' and access_request['payload']['status']['val'][0]!='rejected'):
         nego.update_one({'_id':ObjectId(req_id)}, {'$set': {'payload.status.val.0': 'accepted','payload.end_date.val.0': datetime.utcnow(),'payload.sellersign.val.0':get_sign(access_request['payload']['seller']['val'][0])}})
-        print(access_request['payload']['status']['val'][0])
-        print(access_request['payload']['status']['val'][0] != 'accepted')
+
         return(True)
 
     elif flag=='reject' and (access_request['payload']['status']['val'][0]!='accepted' and access_request['payload']['status']['val'][0]!='rejected'):
         nego.update_one({'_id':ObjectId(req_id)}, {'$set': {'payload.status.val.0': 'rejected','payload.end_date.val.0': datetime.utcnow()}})
-        print('rejected')
+
         return(True)
     elif access_request['payload']['status']['val'][0]=='accepted' or access_request['payload']['status']['val'][0]=='rejected':
         return False
@@ -431,11 +417,9 @@ def change_status(req_id, flag,user,offer):
         if user==access_request['payload']['seller']['val'][0]:
             nego.update_one({'_id':ObjectId(req_id)}, {'$set': {'payload.status.val.0': 'counter_offer',}})
             update(req_id,offer,user)
-            print('counter offer')
         elif (user==access_request['payload']['created_by']['val'][0]):
             nego.update_one({'_id':ObjectId(req_id)}, {'$set': {'payload.status.val.0': 'offer'}})
             update(req_id,offer,user)
-            print('new offer')
 
     return('finished')
 
@@ -477,7 +461,7 @@ def mynegs(uid):
     d={}
 
     auctions=list(nego.find({'$or':[{'owner':uid},{'created_by':uid}]}))
-    #print(auctions)
+    
     for i in auctions:
         d.update({'_id':i['_id']})
         d.update({'name':i['payload']['name']['val'][0]})
@@ -493,16 +477,14 @@ def mynegs(uid):
         owned.append(d2)
         
 
-    print(owned)
     return JSONEncoder().encode(owned)
 
 def neg_info(neg_id):
     neg= list(nego.find({'_id':ObjectId(neg_id)}))
     owned=[]
     d={}
-    print(neg)
+    
     for i in neg:
-        print(i)
         d.update({'_id':i['_id']})
         d.update({'name':i['payload']['name']['val'][0]})
         d.update({'created_by':i['payload']['created_by']['val'][0]})
@@ -517,7 +499,6 @@ def neg_info(neg_id):
     owned.append(d2)
         
 
-    print(owned)
     return JSONEncoder().encode(owned)
 
 

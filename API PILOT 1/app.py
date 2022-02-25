@@ -94,27 +94,21 @@ def create_room():
     if request.method == 'POST':
         privacy= request.form.get('privacy')
         room_name = request.form.get('room_name')
-        print(room_name)
         highest_bid=request.form.get('highest_bid')
         highest_bidder=''
         auction_type=request.form.get('auction_type')
-        print(request.form.get('closing_time'))
         closing_time=dateutil.parser.isoparse(request.form.get('closing_time'))
         reference_sector=request.form.get('reference_sector')
         reference_type=request.form.get('reference_type')
         quantity=request.form.get('quantity')
         articleno=request.form.get('articleno')
         user=request.authorization.username
-        print(user)
         sellersign=get_sign(user)
         buyersign=''
         templatetype=request.form.get('templatetype')
-        print(templatetype)
-        print(request.form.get('members'))
         if(request.form.get('members')):
             usernames = [username.strip() for username in request.form.get('members').split(',')]
         else: 
-            print(user)
             usernames=[user]
 
         if len(room_name) and len(usernames):
@@ -123,10 +117,7 @@ def create_room():
             save_param(room_id,user,room_name,reference_sector,reference_type,quantity,articleno)
             if user in usernames:
                 usernames.remove(user)
-            print(len(usernames))
             if len(usernames)>=1:
-                print('hay')
-                print('usernames')
                 add_room_members(room_id, room_name, usernames, user)
             return {"message":"The room {} has been created id: {}".format(str(room_name),room_id)},200
         else:
@@ -202,14 +193,12 @@ def chat(room_id):
         if request.method=='POST':
             bid=request.form.get("message_input")
             if (closing_time)>datetime.utcnow():
-                print(is_room_admin(room_id,user))
                 if(is_room_admin(room_id,user)==0):
                     app.logger.info("{} has summited a new bid to the room {}: {}".format(user,
                                                                             rn,
                                                                             bid))
                     sign=get_sign(user)
                     ## Calculation of distance between users done at every bid
-                    print(user,get_room_admin(rn))
                     distance=distance_calc(user,get_room_admin(rn))
                     #
                     save_message(str(room['_id']),bid,user,sign,distance)                    
@@ -279,7 +268,6 @@ def winner(room_id):
                 return {"message":"the winner for this auciton has already been selected"},200
         else: return{"message":"You are not room admin"},400
     elif request.method=='GET':
-        print()
         if user == get_room_admin(rn):
             if get_hbidder(room_id)=='': #Winner hasnt been selected
                 return get_bidders(room_id),200
@@ -308,7 +296,7 @@ def query():
         reference_type=request.json.get("reference_type")
         ongoing=request.json.get("ongoing")
         distance= request.json.get("distance")
-        print(distance, user)
+        
         auctions=find_rooms(room_name,reference_sector,reference_type,ongoing,user,distance)
         return auctions,200
 
@@ -346,12 +334,12 @@ def new_neg():
     quantity=request.form.get('quantity')
     articleno=request.form.get('articleno')
     user=request.authorization.username
-    print(user)
+    
     buyersign=get_sign(user)
     sellersign=''
     templatetype=request.form.get('templatetype')
     distance=distance_calc(bidder,seller)
-    print('wtf')
+    
     #The following function may be changed to iterate if multiple roles are requested
     room_id=save_room2(room_name,bidder,seller,bidder,sellersign,buyersign,templatetype,bid,distance)
     save_param2(room_id,user,room_name,reference_sector,reference_type,quantity,articleno)
@@ -380,7 +368,6 @@ def neg(neg_id):
     elif (request.method=='GET'):
         if req['payload']['status']['val'][0]=='accepted':
             s=sign_contract(neg_id)
-            print(s)
             return  {"Contract": "{}".format(s)},200
         else:
             return(neg_info(neg_id)),200
