@@ -502,7 +502,7 @@ def neg_info(neg_id):
     return JSONEncoder().encode(owned)
 
 
-def flatten_negotiation(n):
+def flatten_negotiation(n, d):
     return {
         '_id': n['_id'],
         'name': n['payload']['name']['val'][0],
@@ -513,18 +513,31 @@ def flatten_negotiation(n):
         'current_offer': n['payload']['current_offer']['val'][0],
         'offer_user': n['payload']['offer_user']['val'][0],
         'status': n['payload']['status']['val'][0],
+        'reference_sector': d['payload']['reference_sector']['val'][0],
+        'reference_type': d['payload']['reference_type']['val'][0],
+        'quantity': d['payload']['quantity']['val'][0],
+        'articleno': d['payload']['articleno']['val'][0],
     }
 
 
-def get_negotiations_by_username(username):
-    negotiations = nego.find({
+def get_negotiation(id):
+    negotiation = nego.find_one({ '_id': ObjectId(id) })
+    details = nego_details.find_one({ '_id': ObjectId(id) })
+    return flatten_negotiation(negotiation, details)
+
+
+def get_negotiations_by_username(username, count, skip):
+    negotiations = list(nego.find({
         '$or': [
             { 'payload.created_by.val.0': username },
             { 'payload.seller.val.0': username },
-        ]
-    })
+        ],
+    }).sort('_id', 1).skip(skip).limit(count))
 
-    return list(map(flatten_negotiation, negotiations))
+    ids = [n['_id'] for n in negotiations]
+    details = nego_details.find({ '_id': { '$in': ids }}).sort('_id', 1)
+
+    return [flatten_negotiation(n, d) for (n, d) in zip(negotiations, details)]
 
 
 def get_rooms_by_username(username):

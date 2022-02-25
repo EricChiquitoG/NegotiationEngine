@@ -19,7 +19,8 @@ from db import (
     ended,get_template,get_t,get_distance,get_room_admin,save_param,add_room_member,add_room_members, save_room2,update_bid,
     get_closing,get_hb,get_sign,get_hbidder, get_messages, get_room, get_room_members, get_rooms_for_user, get_user, is_room_admin,
     is_room_member, remove_room_members, save_message, save_room, save_user, update_room, get_room_details, get_room_details_by_ids,
-    get_all_rooms_by_id, get_rooms_by_username, get_negotiations_by_username, create_contract, get_contract, list_contracts
+    get_all_rooms_by_id, get_rooms_by_username, get_negotiations_by_username, create_contract, get_contract, list_contracts,
+    get_negotiation
 )
 from db import JSONEncoder
 
@@ -413,15 +414,30 @@ def cancel(req_id):
         return {"message":'You are not allowed to cancel this transaction'},403
 
 
+@app.route("/negotiate/<neg_id>/full", methods=["GET"])
+def get_negotiation_full(neg_id):
+    """
+    Gets the full information of a negotiation. This includes the negotation and
+    its details.
+    """
+    username = request.authorization.username
+    app.logger.info("%s requesting negotiation %s", username, neg_id)
+
+    negotiation = get_negotiation(neg_id)
+    return JSONEncoder().encode(negotiation), 200
+
+
 @app.route("/negotiate/list", methods=["GET"])
 def list_negotiations():
     """
     Gets a list of all the negotiations a user is part of.
     """
     username = request.authorization.username
-    app.logger.info("%s requesting negotiation list", username)
+    count = request.args.get('count', default=10, type=int)
+    skip = request.args.get('skip', default=0, type=int)
+    app.logger.info("%s requesting negotiation list, count=%s, skip=%s", username, count, skip)
 
-    negotiations = get_negotiations_by_username(username)
+    negotiations = get_negotiations_by_username(username, count, skip)
     return JSONEncoder().encode(negotiations), 200
 
 
