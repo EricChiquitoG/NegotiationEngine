@@ -582,7 +582,7 @@ def create_contract(title, body):
     id = templates_collection.insert_one(
         {
             'temp_type': title,
-            'temp': body
+            'template': body
         }
     ).inserted_id
     return id
@@ -595,7 +595,7 @@ def convert_contract(contract):
     return {
         "_id": contract["_id"],
         "title": contract["temp_type"],
-        "body": contract["temp"],
+        "body": contract["template"],
     }
 
 

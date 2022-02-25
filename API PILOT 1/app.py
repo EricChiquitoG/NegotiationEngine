@@ -425,7 +425,7 @@ def cancel(req_id):
 
 
 @app.route("/negotiate/list", methods=["GET"])
-def list():
+def list_negotiations():
     """
     Gets a list of all the negotiations a user is part of.
     """
