@@ -12,6 +12,7 @@ from geopy.distance import geodesic
 import ast
 import json
 import dateutil.parser
+import logging
 
 from db import (
     neg_info, save_param2,sign_contract,change_status, get_neg,owned_auctions,get_bidders,find_rooms,distance_calc,
@@ -30,6 +31,7 @@ login_manager = LoginManager()
 login_manager.login_view = 'login'
 login_manager.init_app(app)
 
+logging.basicConfig(level=logging.DEBUG)
 
 # The login route receives the username and password as a POST request
 
