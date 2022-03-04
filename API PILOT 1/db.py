@@ -549,6 +549,12 @@ def get_rooms_by_username(username):
     return room_ids
 
 
+def get_public_rooms(skip, count):
+    rooms = list(rooms_collection.find({ "privacy": "Public"}).sort("_id", 1).skip(skip).limit(count))
+    total_rooms = rooms_collection.count_documents({ "privacy": "Public" })
+    return (rooms, total_rooms)
+
+
 def get_room_details(room_id):
     return room_details.find_one({ '_id': ObjectId(room_id) })
 

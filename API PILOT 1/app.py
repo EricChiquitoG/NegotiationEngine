@@ -20,7 +20,7 @@ from db import (
     get_closing,get_hb,get_sign,get_hbidder, get_messages, get_room, get_room_members, get_rooms_for_user, get_user, is_room_admin,
     is_room_member, remove_room_members, save_message, save_room, save_user, update_room, get_room_details, get_room_details_by_ids,
     get_all_rooms_by_id, get_rooms_by_username, get_negotiations_by_username, create_contract, get_contract, list_contracts,
-    get_negotiation
+    get_negotiation, get_public_rooms
 )
 from db import JSONEncoder
 
@@ -33,6 +33,13 @@ login_manager.login_view = 'login'
 login_manager.init_app(app)
 
 logging.basicConfig(level=logging.DEBUG)
+
+def int_or_default(s, default):
+    try:
+        return int(s)
+    except:
+        return default
+
 
 # The login route receives the username and password as a POST request
 
@@ -513,6 +520,30 @@ def get_all_rooms():
     rooms_with_details = [combine_room_with_room_details_and_bids(room, details_lookup[str(room['_id'])], bids_lookup[str(room['_id'])]) for room in rooms ]
 
     return JSONEncoder().encode(rooms_with_details), 200
+
+
+@app.route("/rooms/public", methods=["GET"])
+def route_list_public_auctions():
+    """
+    Returns all available public auctions
+    """
+    username = request.authorization.username
+    skip = int_or_default(request.args.get("skip"), 0)
+    limit = int_or_default(request.args.get("limit"), 20)
+    app.logger.info("%s requesting all public auctions. skip: %d, limit: %d", username, skip, limit)
+
+    (rooms, count) = get_public_rooms(skip, limit)
+    ids = [room["_id"] for room in rooms]
+    details = list(get_room_details_by_ids(ids))
+    details_lookup = { str(room["_id"]): room for room in details }
+
+    # Combine room with details.
+    rooms_with_details = [combine_room_with_room_details(room, details_lookup[str(room["_id"])]) for room in rooms ]
+
+    return JSONEncoder().encode({
+        "rooms": rooms_with_details,
+        "count": count,
+    }), 200
 
 
 @app.route("/contracts/create", methods=["POST"])
