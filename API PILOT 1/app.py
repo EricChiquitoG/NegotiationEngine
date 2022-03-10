@@ -358,27 +358,35 @@ def new_neg():
 # This is once the negotiation has been created 
 @app.route("/negotiate/<neg_id>", methods=['GET','POST'])
 def neg(neg_id):
-    user=request.authorization.username
-    req=get_neg(neg_id)
-    rn=req['payload']['name']['val'][0]
+    user = request.authorization.username
+    req = get_neg(neg_id)
+    name = req['payload']['name']['val'][0]
+
     if request.method == 'POST':
-        if user in (req['payload']['seller']['val'][0],req['payload']['created_by']['val'][0]):
-            if req['payload']['status']['val'][0] not in ('accepted', 'rejected'):
-                bid=request.form.get('bid')
-                distance=distance_calc(user,get_room_admin(rn))
-                save_message(str(req['_id']),bid,user,get_sign(user),distance)
-                change_status(neg_id,1,user,bid)
-                return  {"message":"New offer submited for request with id {}".format(str(req['_id']))},200
+        bid = request.form.get('bid')
+        creator = req['payload']['created_by']['val'][0]
+        participant = req['payload']['seller']['val'][0]
+        status = req['payload']['status']['val'][0]
+
+        if user in (creator, participant):
+            if status not in ('accepted', 'rejected'):
+                distance = distance_calc(creator, participant)
+                save_message(neg_id, bid, user, get_sign(user), distance)
+                change_status(neg_id, 1, user, bid)
+
+                return { "message": "New offer submited for request with id {}".format(str(req['_id'])) }, 200
             else:
-                return  {"message":"The negotiation {} has concluded no more offers can be made".format(str(req['_id']))},403
+                return { "message": "The negotiation {} has concluded no more offers can be made".format(str(req['_id'])) }, 403
         else:
-            return{"message":'You are not part of the current negotiation'}, 403
+            return { "message": 'You are not part of the current negotiation' }, 403
+    
     elif (request.method=='GET'):
-        if req['payload']['status']['val'][0]=='accepted':
-            s=sign_contract(neg_id)
-            return  {"Contract": "{}".format(s)},200
+        status = req['payload']['status']['val'][0]
+        if status == 'accepted':
+            s = sign_contract(neg_id)
+            return  {"Contract": "{}".format(s)}, 200
         else:
-            return(neg_info(neg_id)),200
+            return(neg_info(neg_id)), 200
 
 
 # Only accesible to the owner of such resource, this route accepts the negotiation and begins the contract signing
