@@ -471,7 +471,7 @@ def get_room_info(room_id):
     app.logger.info("%s requesting auction %s information", username, room_id)
 
     room = get_room(room_id)
-    if room['privacy'] != 'public' and not is_room_member(room_id, username):
+    if room['privacy'] != 'Public' and not is_room_member(room_id, username):
         app.logger.error("%s not authorized to retrieve auction %s", username, room_id)
         return { 'message': 'Not authorized to view this auction' }, 403
 
