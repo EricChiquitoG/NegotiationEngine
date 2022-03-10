@@ -33,7 +33,7 @@ python app.py
 
 ### Other
 
-To run a container that also has [Digiprime] and a database set up. A ready-made container exists at [Docker Hub](https://hub.docker.com/r/norlen/digiprime), see the README there for instructions. To build the container see [digiprime-container](https://github.com/norlen/digiprime-container).
+To run a container that also has [Digiprime](https://github.com/norlen/Digiprime) and a database set up. A ready-made container exists at [Docker Hub](https://hub.docker.com/r/norlen/digiprime), see the README there for instructions. To build the container see [digiprime-container](https://github.com/norlen/digiprime-container).
 
 ## Usage
 
