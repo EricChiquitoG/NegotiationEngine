@@ -33,31 +33,146 @@ python app.py
 
 ### Other
 
-To run a container that also has [Digiprime] and a database set up. A ready-made container exists at [Docker Hub](), see the README there for instructions. To build the container see [digiprime-container]().
+To run a container that also has [Digiprime] and a database set up. A ready-made container exists at [Docker Hub](https://hub.docker.com/r/norlen/digiprime), see the README there for instructions. To build the container see [digiprime-container](https://github.com/norlen/digiprime-container).
 
+
+## Additions
+
+### Auctions
+
+Most of the auction functionality is from the original project, we have mostly added endpoints to retrieve information. Examples include getting the full information about an auction, and listing the user's current auctions, and listing all the public auctions.
+
+### Negotations
+
+For negotiations most of the endpoints are from the original project as well. Here we also mostly added endpoints to get the full information about a negotation.
+
+### Contracts
+
+No endpoints for contracts existed. We added functionality to create new contracts, get a single contract, and list all the available contracts.
+
+### Other
+
+Most of the work we have done have been fixing minor bugs. We also changed all the time handling to only use UTC time, and to return timezone information.
 
 ## Usage
-
-Original endpoints are documented in the original [Negotiation Engine]() project. Only our additions are documented below.
 
 ### Auth
 
 Most of the endpoints accept basic authorization with only the username. This is inherited from the parent project, and as a final method for authorization has not been given we continued to use this.
 
+#### Signup
+
+To create a new account `POST` to `/signup` with a JSON body.
+
+```json
+{
+  "username": "username",
+  "email": "user@example.invalid",
+  "password": "password"
+}
+```
+
+<details>
+<summary>Example request</summary>
+
+```bash
+curl --request POST \
+  --url http://localhost:5000/signup \
+  --header 'Content-Type: application/json' \
+  --data '{
+	"username": "user",
+	"email": "user@example.invalid",
+	"password": "password"
+}
+'
+```
+
+</details>
+
+<details>
+<summary>Example response</summary>
+
+```json
+{
+	"message": "User created"
+}
+```
+
+</details>
+
 ### Auctions
+
+Operations exist to create auction, list current auctions for a user, and list all public auctions. For specific auctions users can place bids and end the auctions.
+
+All operations take requires the username to be passed in basic authentication.
+
+#### Create an auction
+
+To create a new auction `POST` to `/create-room` with a form.
+
+Form fields
+
+- `room_name`: Name of the auction.
+- `privacy`: If it is a `Public` or `Private` auction.
+- `auction_type`: `ascending` or `descending` auction.
+- `highest_bid`: not used, set to random value.
+- `closing_time`: Time when the auction closes for new bids, should be in [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) format.
+- `articleno`: Id of the offer to use in auction, or a list of ids if it is for a multiple offer auction.
+- `reference_sector`: Offer reference sector.
+- `reference_type`: Offer reference type.
+- `quantity`: Amount of offer to buy or sell.
+- `templatetype`: Contract to use.
+- `members`: Initial participant list, should be a comma separated list of usernames.
+
+<details>
+<summary>Example request</summary>
+
+```bash
+curl --request POST \
+  --url http://localhost:5000/create-room \
+  --header 'Authorization: Basic bm9ybGVuOg==' \
+  --header 'Content-Type: multipart/form-data; boundary=---011000010111000001101001' \
+  --form privacy=Private \
+  --form 'room_name=auction #1' \
+  --form highest_bid=0 \
+  --form auction_type=ascending \
+  --form closing_time=2020-01-19T14:00:00 \
+  --form reference_sector=composites \
+  --form reference_type=batteries \
+  --form quantity=100 \
+  --form articleno=61e7f7e20daf6671113c4941 \
+  --form templatetype=article \
+  --form members=Sebastian
+```
+
+</details>
+
+<details>
+<summary>Example response</summary>
+
+```json
+{
+	"message": "The room auction #1 has been created id: 61e919468079384bfbaf7fb9"
+}
+```
+
+</details>
 
 
 #### List public auctions
 
 `GET` request to `/rooms/public` returns a list of all available public auctions.
 
-#### Example request
+<details>
+<summary>Example request</summary>
 
 ```bash
 curl --request GET \
   --url http://localhost:5000/rooms/public \
   --header 'Authorization: Basic bm9ybGVuOg=='
 ```
+
+</details>
 
 <details>
 <summary>Example response</summary>
@@ -157,13 +272,16 @@ curl --request GET \
 
 `GET` request to `/rooms/<auctionId>/info` returns all information about a single auction.
 
-##### Example request
+<details>
+<summary>Example request</summary>
 
 ```bash
 curl --request GET \
   --url http://localhost:5000/rooms/61f1405adf8681687161315f/info \
   --header 'Authorization: Basic bm9ybGVuOg=='
 ```
+
+</details>
 
 <details>
 <summary>Example response</summary>
@@ -291,7 +409,8 @@ curl --request GET \
 
 `GET` request to `/room/all` returns a list of all auctions the user is participating in.
 
-##### Example request
+<details>
+<summary>Example request</summary>
 
 ```bash
 curl --request GET \
@@ -299,6 +418,7 @@ curl --request GET \
   --header 'Authorization: Basic U2ViYXN0aWFuOg=='
 ```
 
+</details>
 
 <details>
 <summary>Example response</summary>
@@ -402,19 +522,114 @@ curl --request GET \
 </details>
 
 
-#### name
+#### Get all bids for a specific auction
 
-##### Example request
+Send a `GET` request to `/rooms/<auctionId>` to return a list of all the bids that have been placed at that auction.
+
+<details>
+<summary>Example request</summary>
 
 ```bash
-
+curl --request GET \
+  --url http://localhost:5000/rooms/61f1405adf8681687161315f \
+  --header 'Authorization: Basic bm9ybGVuOg=='
 ```
 
+</details>
 
 <details>
 <summary>Example response</summary>
 
+```json
+{
+	"Bids": [
+		{
+			"created_at": {
+				"val": [
+					"26 Jan, 12:37:02"
+				]
+			},
+			"distance": {
+				"val": [
+					277.4200024628344
+				]
+			},
+			"sender": {
+				"val": [
+					"Sebastian"
+				]
+			},
+			"text": {
+				"val": [
+					"4000"
+				]
+			}
+		},
+	]
+}
+```
 
+</details>
+
+
+#### Place bid at an auction
+
+To place a bid at an auction send a `POST` request to `/rooms/<auctionId>` with a form containing
+
+- `message_input`: Amount to bid.
+
+<details>
+<summary>Example request</summary>
+
+```bash
+curl --request POST \
+  --url http://localhost:5000/rooms/61f14d9fdf86816871613166 \
+  --header 'Authorization: Basic bm9ybGVuMTo=' \
+  --header 'Content-Type: multipart/form-data; boundary=---011000010111000001101001' \
+  --form message_input=6000
+```
+
+</details>
+
+<details>
+<summary>Example response</summary>
+
+```json
+{
+	"message": "You have issued the bid 6000"
+}
+```
+
+</details>
+
+
+#### Select a winner at an auction
+
+When the closing time has passed, the auction can be ended. To end an auction send a `POST` request to `/rooms/<auctionId>/end` with a form containing
+
+- `winner`: The username of the selected winner.
+
+<details>
+<summary>Example request</summary>
+
+```bash
+curl --request POST \
+  --url http://localhost:5000/rooms/61f11f9d9ee8fd4bf299a367/end \
+  --header 'Authorization: Basic bm9ybGVuNTo=' \
+  --header 'Content-Type: multipart/form-data; boundary=---011000010111000001101001' \
+  --form winner=Sebastian
+```
+
+</details>
+
+<details>
+<summary>Example response</summary>
+
+```json
+{
+	"message": "winner has been selected"
+}
+```
 
 </details>
 
@@ -435,7 +650,18 @@ The status field in the response can be one of
 
 `POST` request to `/negotiate` containing a form body to create a new negotiation.
 
-##### Example request
+Form fields
+
+- `price`: Starting price of the negotiation.
+- `seller`: The oppsing party.
+- `articleno`: Id of the offer this negotation uses.
+- `reference_sector`: Offer reference sector.
+- `reference-type`: Offer reference type.
+- `quantity`: Amount of the offer to negotiate about.
+- `templatetype`: Contract to use.
+
+<details>
+<summary>Example request</summary>
 
 ```bash
 curl --request POST \
@@ -452,6 +678,7 @@ curl --request POST \
   --form templatetype=article
 ```
 
+</details>
 
 <details>
 <summary>Example response</summary>
@@ -467,9 +694,10 @@ curl --request POST \
 
 #### Get negotiation
 
-`GET` request to `/negotiation/<negotiationId>/full` returns the complete information about a negotiation.
+Send a `GET` request to `/negotiation/<negotiationId>/full` to get complete information about a negotiation. This requires the user to be part of the negotiation.
 
-##### Example request
+<details>
+<summary>Example request</summary>
 
 ```bash
 curl --request GET \
@@ -477,6 +705,7 @@ curl --request GET \
   --header 'Authorization: Basic bm9ybGVuOg=='
 ```
 
+</details>
 
 <details>
 <summary>Example response</summary>
@@ -513,9 +742,13 @@ curl --request GET \
 
 </details>
 
+
 #### List all negotiations
 
-##### Example request
+Send a `GET` request to `/negotiate/list` to return a list of all the negotations the user is part of.
+
+<details>
+<summary>Example request</summary>
 
 ```bash
 curl --request GET \
@@ -523,6 +756,7 @@ curl --request GET \
   --header 'Authorization: Basic bm9ybGVuOg=='
 ```
 
+</details>
 
 <details>
 <summary>Example response</summary>
@@ -546,10 +780,16 @@ curl --request GET \
 </details>
 
 
-
 #### Bid on negotiation
 
-##### Example request
+Send a `POST` request to `negotiate/<negotiationId>` with a form body to place a bid in a negotiation.
+
+Form fields
+
+- `bid`: the new bid to place.
+
+<details>
+<summary>Example request</summary>
 
 ```bash
 curl --request POST \
@@ -559,6 +799,7 @@ curl --request POST \
   --form bid=1000
 ```
 
+</details>
 
 <details>
 <summary>Example response</summary>
@@ -574,7 +815,12 @@ curl --request POST \
 
 #### Accept offer in negotiation
 
-##### Example request
+If the opposing party in a negotiation has placed the last bid, the other participant can accept the offer.
+
+Send a `GET` request to `negotiate/<negotiationId>/accept` to accept the negotiation.
+
+<details>
+<summary>Example request</summary>
 
 ```bash
 curl --request GET \
@@ -582,6 +828,7 @@ curl --request GET \
   --header 'Authorization: Basic U2ViYXN0aWFuOg=='
 ```
 
+</details>
 
 <details>
 <summary>Example response</summary>
@@ -595,10 +842,14 @@ curl --request GET \
 </details>
 
 
-
 #### Reject offer in negotiation
 
-##### Example request
+If the opposing party in a negotiation has placed the last bid, the other participant can reject the offer.
+
+Send a `GET` request to `negotiate/<negotiationId>/cancel` to cancel a negotiation.
+
+<details>
+<summary>Example request</summary>
 
 ```bash
 curl --request GET \
@@ -606,6 +857,7 @@ curl --request GET \
   --header 'Authorization: Basic U2ViYXN0aWFuOg=='
 ```
 
+</details>
 
 <details>
 <summary>Example response</summary>
@@ -618,11 +870,13 @@ curl --request GET \
 
 </details>
 
+
 ### Contracts
 
 Support has been added for a more complete handling of contracts. With support for adding, getting, and listing.
 
 Contract bodies can contain certain template parameters which will be substitued in during the signing process, these are specified by using `$key`.
+
 
 #### Create contract
 
@@ -637,7 +891,8 @@ Contract bodies can contain certain template parameters which will be substitued
 
 to create a single contract.
 
-##### Example request
+<details>
+<summary>Example request</summary>
 
 ```bash
 curl --request POST \
@@ -649,6 +904,7 @@ curl --request POST \
 }'
 ```
 
+</details>
 
 <details>
 <summary>Example response</summary>
@@ -667,13 +923,15 @@ curl --request POST \
 
 `GET` request to `contracts/<contractId>` to get information about a single contract.
 
-##### Example request
+<details>
+<summary>Example request</summary>
 
 ```bash
 curl --request GET \
   --url http://localhost:5000/contracts/6214ea9ad6db7bca66de2c3a
 ```
 
+</details>
 
 <details>
 <summary>Example response</summary>
@@ -693,13 +951,15 @@ curl --request GET \
 
 `GET` request to `contracts/list` to list all the available contracts.
 
-##### Example request
+<details>
+<summary>Example request</summary>
 
 ```bash
 curl --request GET \
   --url http://localhost:5000/contracts/list
 ```
 
+</details>
 
 <details>
 <summary>Example response</summary>
