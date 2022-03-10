@@ -377,7 +377,10 @@ def save_room2(room_name, created_by,seller,highest_bidder,sellersign,buyersign,
                  'buyersign':{'val':[buyersign]},
                  'templatetype':{'val':[templatetype]},
                  'status':{'val':['submitted']}}}).inserted_id
-    add_room_member(room_id, room_name, created_by, created_by, is_room_admin=True)
+
+    # Fetching auctions fails if this is added, not sure if it is needed or not
+    # but we'll keep it disabled.
+    #add_room_member(room_id, room_name, created_by, created_by, is_room_admin=True)
     save_message(room_id,bid,created_by,buyersign,distance)
     return room_id
 
