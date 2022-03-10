@@ -35,25 +35,6 @@ python app.py
 
 To run a container that also has [Digiprime] and a database set up. A ready-made container exists at [Docker Hub](https://hub.docker.com/r/norlen/digiprime), see the README there for instructions. To build the container see [digiprime-container](https://github.com/norlen/digiprime-container).
 
-
-## Additions
-
-### Auctions
-
-Most of the auction functionality is from the original project, we have mostly added endpoints to retrieve information. Examples include getting the full information about an auction, and listing the user's current auctions, and listing all the public auctions.
-
-### Negotations
-
-For negotiations most of the endpoints are from the original project as well. Here we also mostly added endpoints to get the full information about a negotation.
-
-### Contracts
-
-No endpoints for contracts existed. We added functionality to create new contracts, get a single contract, and list all the available contracts.
-
-### Other
-
-Most of the work we have done have been fixing minor bugs. We also changed all the time handling to only use UTC time, and to return timezone information.
-
 ## Usage
 
 ### Auth
@@ -80,9 +61,9 @@ curl --request POST \
   --url http://localhost:5000/signup \
   --header 'Content-Type: application/json' \
   --data '{
-	"username": "user",
-	"email": "user@example.invalid",
-	"password": "password"
+  "username": "user",
+  "email": "user@example.invalid",
+  "password": "password"
 }
 '
 ```
@@ -94,7 +75,7 @@ curl --request POST \
 
 ```json
 {
-	"message": "User created"
+  "message": "User created"
 }
 ```
 
@@ -152,7 +133,7 @@ curl --request POST \
 
 ```json
 {
-	"message": "The room auction #1 has been created id: 61e919468079384bfbaf7fb9"
+  "message": "The room auction #1 has been created id: 61e919468079384bfbaf7fb9"
 }
 ```
 
@@ -179,89 +160,89 @@ curl --request GET \
 
 ```json
 {
-	"rooms": [
-		{
-			"_id": "62036fb8ca7196f92ae2d39c",
-			"type": "auction",
-			"privacy": "Public",
-			"payload": {
-				"name": {
-					"val": [
-						"Selling batteries"
-					]
-				},
-				"created_by": {
-					"val": [
-						"norlen"
-					]
-				},
-				"created_at": {
-					"val": [
-						"2022-02-09T07:39:36.494000Z"
-					]
-				},
-				"auction_type": {
-					"val": [
-						"Ascending"
-					]
-				},
-				"highest_bid": {
-					"val": [
-						null
-					]
-				},
-				"highest_bidder": {
-					"val": [
-						""
-					]
-				},
-				"closing_time": {
-					"val": [
-						"2022-02-24T00:39:00.000000Z"
-					]
-				},
-				"sellersign": {
-					"val": [
-						"29f2a06bee0ef58efa052ceaf88f81eeab26e78207fefa5b34946d882c330189:b916efacee6a4e4ea958ebf79a05d03d"
-					]
-				},
-				"buyersign": {
-					"val": [
-						""
-					]
-				},
-				"templatetype": {
-					"val": [
-						"article"
-					]
-				},
-				"room_name": {
-					"val": [
-						"Selling batteries"
-					]
-				},
-				"reference_sector": {
-					"val": [
-						"Batteries"
-					]
-				},
-				"reference_type": {
-					"val": [
-						"Product"
-					]
-				},
-				"quantity": {
-					"val": [
-						"1000"
-					]
-				},
-				"articleno": {
-					"val": [
-						"6202b296f597322ebac72f34"
-					]
-				}
-			}
-		}
+  "rooms": [
+    {
+      "_id": "62036fb8ca7196f92ae2d39c",
+      "type": "auction",
+      "privacy": "Public",
+      "payload": {
+        "name": {
+          "val": [
+            "Selling batteries"
+          ]
+        },
+        "created_by": {
+          "val": [
+            "norlen"
+          ]
+        },
+        "created_at": {
+          "val": [
+            "2022-02-09T07:39:36.494000Z"
+          ]
+        },
+        "auction_type": {
+          "val": [
+            "Ascending"
+          ]
+        },
+        "highest_bid": {
+          "val": [
+            null
+          ]
+        },
+        "highest_bidder": {
+          "val": [
+            ""
+          ]
+        },
+        "closing_time": {
+          "val": [
+            "2022-02-24T00:39:00.000000Z"
+          ]
+        },
+        "sellersign": {
+          "val": [
+            "29f2a06bee0ef58efa052ceaf88f81eeab26e78207fefa5b34946d882c330189:b916efacee6a4e4ea958ebf79a05d03d"
+          ]
+        },
+        "buyersign": {
+          "val": [
+            ""
+          ]
+        },
+        "templatetype": {
+          "val": [
+            "article"
+          ]
+        },
+        "room_name": {
+          "val": [
+            "Selling batteries"
+          ]
+        },
+        "reference_sector": {
+          "val": [
+            "Batteries"
+          ]
+        },
+        "reference_type": {
+          "val": [
+            "Product"
+          ]
+        },
+        "quantity": {
+          "val": [
+            "1000"
+          ]
+        },
+        "articleno": {
+          "val": [
+            "6202b296f597322ebac72f34"
+          ]
+        }
+      }
+    }
   ]
 }
 ```
@@ -288,117 +269,117 @@ curl --request GET \
 
 ```json
 {
-	"_id": "61f1405adf8681687161315f",
-	"type": "auction",
-	"privacy": null,
-	"payload": {
-		"name": {
-			"val": [
-				"My auction"
-			]
-		},
-		"created_by": {
-			"val": [
-				"norlen"
-			]
-		},
-		"created_at": {
-			"val": [
-				"2022-01-26 12:36:42.642000"
-			]
-		},
-		"auction_type": {
-			"val": [
-				"Ascending"
-			]
-		},
-		"highest_bid": {
-			"val": [
-				null
-			]
-		},
-		"highest_bidder": {
-			"val": [
-				""
-			]
-		},
-		"closing_time": {
-			"val": [
-				"2022-01-26 12:45:00"
-			]
-		},
-		"sellersign": {
-			"val": [
-				"de66180cd5cc547e66bc4b5b5f71f3be48bca3e3db63292cd27ee53351413d20:a5c245dab60d46468d5f73151157c8e4"
-			]
-		},
-		"buyersign": {
-			"val": [
-				""
-			]
-		},
-		"templatetype": {
-			"val": [
-				null
-			]
-		},
-		"room_name": {
-			"val": [
-				"My auction"
-			]
-		},
-		"reference_sector": {
-			"val": [
-				"Composites"
-			]
-		},
-		"reference_type": {
-			"val": [
-				"Material"
-			]
-		},
-		"quantity": {
-			"val": [
-				"123"
-			]
-		},
-		"articleno": {
-			"val": [
-				"61f14055dbe7522f80ada197"
-			]
-		}
-	},
-	"members": [
-		{
-			"_id": {
-				"room_id": "61f1405adf8681687161315f",
-				"username": "norlen"
-			},
-			"room_name": "My auction",
-			"added_by": "norlen",
-			"added_at": "2022-01-26 12:36:42.685000",
-			"is_room_admin": true
-		},
-		{
-			"_id": {
-				"room_id": "61f1405adf8681687161315f",
-				"username": "norlen1"
-			},
-			"room_name": "My auction",
-			"added_by": "norlen",
-			"added_at": "2022-01-26 12:36:42.763000",
-			"is_room_admin": false
-		}
-	],
-	"bids": [
-		{
-			"text": "5000",
-			"sender": "norlen1",
-			"created_at": "2022-01-26 12:37:06.495000",
-			"distance": 277.4200024628344,
-			"sign": "e7f8ae46a72e2bca1098d5df01e45a7ed2969ca965ac07bd02200fdca75f653f:0989548859f84d90895826c21495d5fb"
-		}
-	]
+  "_id": "61f1405adf8681687161315f",
+  "type": "auction",
+  "privacy": null,
+  "payload": {
+    "name": {
+      "val": [
+        "My auction"
+      ]
+    },
+    "created_by": {
+      "val": [
+        "norlen"
+      ]
+    },
+    "created_at": {
+      "val": [
+        "2022-01-26 12:36:42.642000"
+      ]
+    },
+    "auction_type": {
+      "val": [
+        "Ascending"
+      ]
+    },
+    "highest_bid": {
+      "val": [
+        null
+      ]
+    },
+    "highest_bidder": {
+      "val": [
+        ""
+      ]
+    },
+    "closing_time": {
+      "val": [
+        "2022-01-26 12:45:00"
+      ]
+    },
+    "sellersign": {
+      "val": [
+        "de66180cd5cc547e66bc4b5b5f71f3be48bca3e3db63292cd27ee53351413d20:a5c245dab60d46468d5f73151157c8e4"
+      ]
+    },
+    "buyersign": {
+      "val": [
+        ""
+      ]
+    },
+    "templatetype": {
+      "val": [
+        null
+      ]
+    },
+    "room_name": {
+      "val": [
+        "My auction"
+      ]
+    },
+    "reference_sector": {
+      "val": [
+        "Composites"
+      ]
+    },
+    "reference_type": {
+      "val": [
+        "Material"
+      ]
+    },
+    "quantity": {
+      "val": [
+        "123"
+      ]
+    },
+    "articleno": {
+      "val": [
+        "61f14055dbe7522f80ada197"
+      ]
+    }
+  },
+  "members": [
+    {
+      "_id": {
+        "room_id": "61f1405adf8681687161315f",
+        "username": "norlen"
+      },
+      "room_name": "My auction",
+      "added_by": "norlen",
+      "added_at": "2022-01-26 12:36:42.685000",
+      "is_room_admin": true
+    },
+    {
+      "_id": {
+        "room_id": "61f1405adf8681687161315f",
+        "username": "norlen1"
+      },
+      "room_name": "My auction",
+      "added_by": "norlen",
+      "added_at": "2022-01-26 12:36:42.763000",
+      "is_room_admin": false
+    }
+  ],
+  "bids": [
+    {
+      "text": "5000",
+      "sender": "norlen1",
+      "created_at": "2022-01-26 12:37:06.495000",
+      "distance": 277.4200024628344,
+      "sign": "e7f8ae46a72e2bca1098d5df01e45a7ed2969ca965ac07bd02200fdca75f653f:0989548859f84d90895826c21495d5fb"
+    }
+  ]
 }
 ```
 
@@ -425,97 +406,97 @@ curl --request GET \
 
 ```json
 [
-	{
-		"_id": "6202b373a10ca517c592e275",
-		"type": "auction",
-		"privacy": "Private",
-		"payload": {
-			"name": {
-				"val": [
-					"Buy batteries #0"
-				]
-			},
-			"created_by": {
-				"val": [
-					"norlen"
-				]
-			},
-			"created_at": {
-				"val": [
-					"2022-02-08T18:16:19.944000Z"
-				]
-			},
-			"auction_type": {
-				"val": [
-					"Descending"
-				]
-			},
-			"highest_bid": {
-				"val": [
-					"100"
-				]
-			},
-			"highest_bidder": {
-				"val": [
-					"Sebastian"
-				]
-			},
-			"closing_time": {
-				"val": [
-					"2022-02-08T18:27:00.000000Z"
-				]
-			},
-			"sellersign": {
-				"val": [
-					"29f2a06bee0ef58efa052ceaf88f81eeab26e78207fefa5b34946d882c330189:b916efacee6a4e4ea958ebf79a05d03d"
-				]
-			},
-			"buyersign": {
-				"val": [
-					"b6b31762d313de53105810478cd5965bc34d444fe62b10d875eff11e1e853599:eb8631b00bb34a1899877022bdfceeb1"
-				]
-			},
-			"templatetype": {
-				"val": [
-					"article"
-				]
-			},
-			"room_name": {
-				"val": [
-					"Buy batteries #0"
-				]
-			},
-			"reference_sector": {
-				"val": [
-					"Batteries"
-				]
-			},
-			"reference_type": {
-				"val": [
-					"Product"
-				]
-			},
-			"quantity": {
-				"val": [
-					"1000"
-				]
-			},
-			"articleno": {
-				"val": [
-					"6202b2f6f597322ebac72f59,6202b335f597322ebac72f72"
-				]
-			}
-		},
-		"bids": [
-			{
-				"text": "100",
-				"sender": "Sebastian",
-				"created_at": "2022-02-08T18:16:28.409000Z",
-				"distance": 796.1446685405374,
-				"sign": "b6b31762d313de53105810478cd5965bc34d444fe62b10d875eff11e1e853599:eb8631b00bb34a1899877022bdfceeb1"
-			}
-		]
-	}
+  {
+    "_id": "6202b373a10ca517c592e275",
+    "type": "auction",
+    "privacy": "Private",
+    "payload": {
+      "name": {
+        "val": [
+          "Buy batteries #0"
+        ]
+      },
+      "created_by": {
+        "val": [
+          "norlen"
+        ]
+      },
+      "created_at": {
+        "val": [
+          "2022-02-08T18:16:19.944000Z"
+        ]
+      },
+      "auction_type": {
+        "val": [
+          "Descending"
+        ]
+      },
+      "highest_bid": {
+        "val": [
+          "100"
+        ]
+      },
+      "highest_bidder": {
+        "val": [
+          "Sebastian"
+        ]
+      },
+      "closing_time": {
+        "val": [
+          "2022-02-08T18:27:00.000000Z"
+        ]
+      },
+      "sellersign": {
+        "val": [
+          "29f2a06bee0ef58efa052ceaf88f81eeab26e78207fefa5b34946d882c330189:b916efacee6a4e4ea958ebf79a05d03d"
+        ]
+      },
+      "buyersign": {
+        "val": [
+          "b6b31762d313de53105810478cd5965bc34d444fe62b10d875eff11e1e853599:eb8631b00bb34a1899877022bdfceeb1"
+        ]
+      },
+      "templatetype": {
+        "val": [
+          "article"
+        ]
+      },
+      "room_name": {
+        "val": [
+          "Buy batteries #0"
+        ]
+      },
+      "reference_sector": {
+        "val": [
+          "Batteries"
+        ]
+      },
+      "reference_type": {
+        "val": [
+          "Product"
+        ]
+      },
+      "quantity": {
+        "val": [
+          "1000"
+        ]
+      },
+      "articleno": {
+        "val": [
+          "6202b2f6f597322ebac72f59,6202b335f597322ebac72f72"
+        ]
+      }
+    },
+    "bids": [
+      {
+        "text": "100",
+        "sender": "Sebastian",
+        "created_at": "2022-02-08T18:16:28.409000Z",
+        "distance": 796.1446685405374,
+        "sign": "b6b31762d313de53105810478cd5965bc34d444fe62b10d875eff11e1e853599:eb8631b00bb34a1899877022bdfceeb1"
+      }
+    ]
+  }
 ]
 ```
 
@@ -542,30 +523,30 @@ curl --request GET \
 
 ```json
 {
-	"Bids": [
-		{
-			"created_at": {
-				"val": [
-					"26 Jan, 12:37:02"
-				]
-			},
-			"distance": {
-				"val": [
-					277.4200024628344
-				]
-			},
-			"sender": {
-				"val": [
-					"Sebastian"
-				]
-			},
-			"text": {
-				"val": [
-					"4000"
-				]
-			}
-		},
-	]
+  "Bids": [
+    {
+      "created_at": {
+        "val": [
+          "26 Jan, 12:37:02"
+        ]
+      },
+      "distance": {
+        "val": [
+          277.4200024628344
+        ]
+      },
+      "sender": {
+        "val": [
+          "Sebastian"
+        ]
+      },
+      "text": {
+        "val": [
+          "4000"
+        ]
+      }
+    },
+  ]
 }
 ```
 
@@ -596,7 +577,7 @@ curl --request POST \
 
 ```json
 {
-	"message": "You have issued the bid 6000"
+  "message": "You have issued the bid 6000"
 }
 ```
 
@@ -627,7 +608,7 @@ curl --request POST \
 
 ```json
 {
-	"message": "winner has been selected"
+  "message": "winner has been selected"
 }
 ```
 
@@ -685,7 +666,7 @@ curl --request POST \
 
 ```json
 {
-	"message": "The negotiation with id 6214de1683a1bdd717642654 has been created"
+  "message": "The negotiation with id 6214de1683a1bdd717642654 has been created"
 }
 ```
 
@@ -712,19 +693,19 @@ curl --request GET \
 
 ```json
 {
-	"_id": "6214dd9dc6800c95ee2c0d45",
-	"name": "negotiation #1",
-	"created_by": "norlen",
-	"seller": "Sebastian",
-	"created_at": "2022-02-22T12:57:01.147000Z",
-	"end_date": "2022-02-25T06:40:07.154000Z",
-	"current_offer": "1000",
-	"offer_user": "norlen",
-	"status": "rejected",
-	"reference_sector": "Batteries",
-	"reference_type": "Material",
-	"quantity": "100",
-	"articleno": "620618063593f61446de42f6"
+  "_id": "6214dd9dc6800c95ee2c0d45",
+  "name": "negotiation #1",
+  "created_by": "norlen",
+  "seller": "Sebastian",
+  "created_at": "2022-02-22T12:57:01.147000Z",
+  "end_date": "2022-02-25T06:40:07.154000Z",
+  "current_offer": "1000",
+  "offer_user": "norlen",
+  "status": "rejected",
+  "reference_sector": "Batteries",
+  "reference_type": "Material",
+  "quantity": "100",
+  "articleno": "620618063593f61446de42f6"
 }
 ```
 
@@ -763,17 +744,17 @@ curl --request GET \
 
 ```json
 [
-	{
-		"_id": "6214d8edc6800c95ee2c0d33",
-		"name": "negotiation #1",
-		"created_by": "norlen",
-		"seller": "Sebastian",
-		"created_at": "2022-02-22T12:37:01.900000Z",
-		"end_date": "2022-02-22T12:50:37.573000Z",
-		"current_offer": "1000",
-		"offer_user": "Sebastian",
-		"status": "accepted"
-	},
+  {
+    "_id": "6214d8edc6800c95ee2c0d33",
+    "name": "negotiation #1",
+    "created_by": "norlen",
+    "seller": "Sebastian",
+    "created_at": "2022-02-22T12:37:01.900000Z",
+    "end_date": "2022-02-22T12:50:37.573000Z",
+    "current_offer": "1000",
+    "offer_user": "Sebastian",
+    "status": "accepted"
+  },
 ]
 ```
 
@@ -806,7 +787,7 @@ curl --request POST \
 
 ```json
 {
-	"message": "New offer submited for request with id 6214d8edc6800c95ee2c0d33"
+  "message": "New offer submited for request with id 6214d8edc6800c95ee2c0d33"
 }
 ```
 
@@ -835,7 +816,7 @@ curl --request GET \
 
 ```json
 {
-	"message": "The negotiation with id 6214d8edc6800c95ee2c0d33 has been accepted."
+  "message": "The negotiation with id 6214d8edc6800c95ee2c0d33 has been accepted."
 }
 ```
 
@@ -864,7 +845,7 @@ curl --request GET \
 
 ```json
 {
-	"message": "The negotiation with id 6214d8edc6800c95ee2c0d33 has been rejected."
+  "message": "The negotiation with id 6214d8edc6800c95ee2c0d33 has been rejected."
 }
 ```
 
@@ -899,8 +880,8 @@ curl --request POST \
   --url http://localhost:5000/contracts/create \
   --header 'Content-Type: application/json' \
   --data '{
-	"title": "article",
-	"body": "details"
+  "title": "article",
+  "body": "details"
 }'
 ```
 
@@ -911,8 +892,8 @@ curl --request POST \
 
 ```json
 {
-	"id": "6214ea9ad6db7bca66de2c3a",
-	"message": "successfully created contract"
+  "id": "6214ea9ad6db7bca66de2c3a",
+  "message": "successfully created contract"
 }
 ```
 
@@ -938,9 +919,9 @@ curl --request GET \
 
 ```json
 {
-	"_id": "6214ea9ad6db7bca66de2c3a",
-	"title": "article",
-	"body": "details"
+  "_id": "6214ea9ad6db7bca66de2c3a",
+  "title": "article",
+  "body": "details"
 }
 ```
 
@@ -966,12 +947,31 @@ curl --request GET \
 
 ```json
 [
-	{
-		"_id": "6214ea9ad6db7bca66de2c3a",
-		"title": "article",
-		"body": "details"
-	}
+  {
+    "_id": "6214ea9ad6db7bca66de2c3a",
+    "title": "article",
+    "body": "details"
+  }
 ]
 ```
 
 </details>
+
+
+## Additions
+
+### Auctions
+
+Most of the auction functionality is from the original project, we have mostly added endpoints to retrieve information. Examples include getting the full information about an auction, and listing the user's current auctions, and listing all the public auctions.
+
+### Negotations
+
+For negotiations most of the endpoints are from the original project as well. Here we also mostly added endpoints to get the full information about a negotation.
+
+### Contracts
+
+No endpoints for contracts existed. We added functionality to create new contracts, get a single contract, and list all the available contracts.
+
+### Other
+
+Most of the work we have done have been fixing minor bugs. We also changed all the time handling to only use UTC time, and to return timezone information.
