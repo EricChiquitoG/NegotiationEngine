@@ -302,12 +302,12 @@ def get_messages(room_id, page=0):
     return messages
 
 
-def ended(room_id):
+def ended(room_id, contract_title):
     
     highest_bid=get_room(room_id)['payload']['highest_bid']['val'][0]
     highest_bidder=get_hbidder(room_id)
     if highest_bidder:
-        template=Template(get_template(room_id))
+        template=Template(get_template(contract_title))
         room=rooms_collection.find_one({'_id': ObjectId(room_id)})
         room_d=room_details.find_one({'_id': ObjectId(room_id)})
         d=dict(buyer=room['payload']['highest_bidder']['val'][0],quantity=room_d['payload']['quantity']['val'][0], item=room_d['payload']['articleno']['val'][0],ammount=highest_bid,date=room['payload']['closing_time']['val'][0],owner=room['payload']['created_by']['val'][0],buyersign=room['payload']['buyersign']['val'][0],sellersign=room['payload']['sellersign']['val'][0])

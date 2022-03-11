@@ -251,6 +251,7 @@ def winner(room_id):
     room = get_room(room_id)
     
     rn=room['payload']['name']['val'][0]
+    contract_title = room['payload']['templatetype']['val'][0]
     
     user=request.authorization.username
 ## Withing this function the logic for the winner selection is specified, the admin shall input the username of the winner
@@ -280,10 +281,10 @@ def winner(room_id):
             if get_hbidder(room_id)=='': #Winner hasnt been selected
                 return get_bidders(room_id),200
             else: #Winner is selected
-                response={'contract':ended(room_id)}
+                response={'contract':ended(room_id, contract_title)}
                 return jsonify(response),200
         elif (user==get_hbidder(room_id)):
-            response={'contract':ended(room_id)}
+            response={'contract':ended(room_id, contract_title)}
             return jsonify(response),200
         elif get_hbidder(room_id)=='':
             return {"message":"Winner hasnt been selected"},400
