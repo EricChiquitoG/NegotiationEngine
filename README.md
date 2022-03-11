@@ -1,6 +1,6 @@
 [Digiprime](https://www.digiprime.eu/) is an EU project for the circular economy. This project is part of it and offers the ability to perform negotiations and contract signing between different parties.
 
-This work is an addition to the work alread performed in [Negotiation Engine](https://github.com/EricChiquitoG/NegotiationEngine), which we have forked and added our additions. As this is used by the related [Digiprime](https://github.com/norlen/NegotiationEngine) project, our additions have mainly been to support the functionality required there. Some of these include retreiving a more complete set of information for both auctions and negotations and contract handling.
+This work is an addition to the work alread performed in [Negotiation Engine](https://github.com/EricChiquitoG/NegotiationEngine), which we have forked and added our additions. As this is used by the related [Digiprime](https://github.com/norlen/NegotiationEngine) project, our additions have mainly been to support the functionality required there. Some of these include retreiving a more complete set of information for both auctions and negotiations and contract handling.
 
 All our additions have been contained inside the `API PILOT 1` project. For a more complete view of the project, view the original README located at [Negotiation Engine](https://github.com/EricChiquitoG/NegotiationEngine)
 
@@ -617,7 +617,7 @@ curl --request POST \
 
 ### Negotiations
 
-The API allows to create, list, get a single negotations. For a negotation you can bid, accept or reject.
+The API allows to create, list, get a single negotiations. For a negotiation you can bid, accept or reject.
 
 The status field in the response can be one of
 
@@ -635,7 +635,7 @@ Form fields
 
 - `price`: Starting price of the negotiation.
 - `seller`: The oppsing party.
-- `articleno`: Id of the offer this negotation uses.
+- `articleno`: Id of the offer this negotiation uses.
 - `reference_sector`: Offer reference sector.
 - `reference-type`: Offer reference type.
 - `quantity`: Amount of the offer to negotiate about.
@@ -705,19 +705,8 @@ curl --request GET \
   "reference_sector": "Batteries",
   "reference_type": "Material",
   "quantity": "100",
-  "articleno": "620618063593f61446de42f6"
-}
-```
-
-</details>
-
-<details>
-<summary>Example response on accepted negotiation</summary>
-
-```json
-{
-  "type": "contract",
-  "contract": "",
+  "articleno": "620618063593f61446de42f6",
+  "contract": ""
 }
 ```
 
@@ -726,7 +715,7 @@ curl --request GET \
 
 #### List all negotiations
 
-Send a `GET` request to `/negotiate/list` to return a list of all the negotations the user is part of.
+Send a `GET` request to `/negotiate/list` to return a list of all the negotiations the user is part of.
 
 <details>
 <summary>Example request</summary>
@@ -964,9 +953,9 @@ curl --request GET \
 
 Most of the auction functionality is from the original project, we have mostly added endpoints to retrieve information. Examples include getting the full information about an auction, and listing the user's current auctions, and listing all the public auctions.
 
-### Negotations
+### Negotiations
 
-For negotiations most of the endpoints are from the original project as well. Here we also mostly added endpoints to get the full information about a negotation.
+For negotiations most of the endpoints are from the original project as well. Here we also mostly added endpoints to get the full information about a negotiation.
 
 ### Contracts
 

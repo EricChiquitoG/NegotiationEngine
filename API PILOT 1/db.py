@@ -450,8 +450,13 @@ def sign_contract(req_id):
     negd=nego_details.find_one({'_id':ObjectId(req_id)})
     temp_type= "article" # currently hardcoded
     temp=Template(get_template(temp_type))
-    d=dict(buyer=neg['payload']['created_by']['val'][0],quantity=negd['payload']['quantity']['val'][0], item=negd['payload']['articleno']['val'][0],
-        ammount=neg['payload']['current_offer']['val'][0],date=neg['payload']['end_date']['val'][0],owner=neg['payload']['seller']['val'][0],buyersign=neg['payload']['buyersign']['val'][0],
+    d=dict(buyer=neg['payload']['created_by']['val'][0],
+        quantity=negd['payload']['quantity']['val'][0],
+        item=negd['payload']['articleno']['val'][0],
+        ammount=neg['payload']['current_offer']['val'][0],
+        date=neg['payload']['end_date']['val'][0],
+        owner=neg['payload']['seller']['val'][0],
+        buyersign=neg['payload']['buyersign']['val'][0],
         sellersign=neg['payload']['sellersign']['val'][0])
     signed_c=temp.safe_substitute(d)
     # I have the idea to no contracts be saved, but rather they are created whenever they are requested based on the parameters in the db
@@ -504,7 +509,6 @@ def neg_info(neg_id):
 
     return JSONEncoder().encode(owned)
 
-
 def flatten_negotiation(n, d):
     return {
         '_id': n['_id'],
@@ -520,6 +524,9 @@ def flatten_negotiation(n, d):
         'reference_type': d['payload']['reference_type']['val'][0],
         'quantity': d['payload']['quantity']['val'][0],
         'articleno': d['payload']['articleno']['val'][0],
+        'buyersign': n['payload']['buyersign']['val'][0],
+        'sellersign': n['payload']['sellersign']['val'][0],
+        'contract_template': n['payload']['templatetype']['val'][0],
     }
 
 
@@ -581,6 +588,19 @@ def get_room_details_by_ids(room_ids):
 def create_contract(title, body):
     """
     Creates a new contract
+
+    Keys supported in the contract, used with ($key) are
+    - title (title of the auction/negotiation)
+    - owner (creator)
+    - buyer (the other party)
+    - quantity (amount to buy/sell)
+    - item (the article number)
+    - amount (the final price)
+    - reference_sector
+    - reference_type
+    - buyersign (buyer's signature)
+    - sellersign (seller's signature)
+    - date (date when contract should be signed)
     """
     id = templates_collection.insert_one(
         {
@@ -618,3 +638,53 @@ def list_contracts():
     """
     contracts = templates_collection.find({})
     return list(map(convert_contract, contracts))
+
+
+def create_contract(template, values):
+    s = Template(template["body"]).safe_substitute(values)
+    return {
+        **values,
+        "title": template["title"],
+        "body": s,
+    }
+
+
+def sign_auction_contract(auction_id, contract_id):
+    template = get_contract(contract_id)
+    auction = get_room(auction_id)
+    details = get_room_details(auction_id)
+    
+    values = dict()
+    values["title"] = auction["payload"]["name"]["val"][0]
+    values["owner"] = auction["payload"]["created_by"]["val"][0]
+    values["buyer"] = auction["payload"]["highest_bidder"]["val"][0]
+    values["date"] = auction["payload"]["closing_time"]["val"][0]
+    values["item"] = details["payload"]["articleno"]["val"][0]
+    values["quantity"] = details["payload"]["quantity"]["val"][0]
+    values["amount"] = auction["payload"]["highest_bid"]["val"][0]
+    values["reference_sector"] = details["payload"]["reference_sector"]["val"][0]
+    values["reference_type"] = details["payload"]["reference_type"]["val"][0]
+    values["buyersign"] = auction["payload"]["buyersign"]["val"][0]
+    values["sellersign"] = auction["payload"]["sellersign"]["val"][0]
+
+    return create_contract(template, values)
+
+
+def sign_negotiation_contract(negotiation_id, contract_id):
+    template = get_contract(contract_id)
+    negotiation = get_negotiation(negotiation_id)
+
+    values = dict()
+    values["title"] = negotiation["name"]
+    values["owner"] = negotiation["created_by"]
+    values["buyer"] = negotiation["seller"]
+    values["date"] = negotiation["end_date"]
+    values["item"] = negotiation["articleno"]
+    values["quantity"] = negotiation["quantity"]
+    values["amount"] = negotiation["current_offer"]
+    values["reference_sector"] = negotiation["reference_sector"]
+    values["reference_type"] = negotiation["reference_type"]
+    values["buyersign"] = negotiation["buyersign"]
+    values["sellersign"] = negotiation["sellersign"]
+    
+    return create_contract(template, values)

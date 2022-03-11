@@ -20,7 +20,7 @@ from db import (
     get_closing,get_hb,get_sign,get_hbidder, get_messages, get_room, get_room_members, get_rooms_for_user, get_user, is_room_admin,
     is_room_member, remove_room_members, save_message, save_room, save_user, update_room, get_room_details, get_room_details_by_ids,
     get_all_rooms_by_id, get_rooms_by_username, get_negotiations_by_username, create_contract, get_contract, list_contracts,
-    get_negotiation, get_public_rooms
+    get_negotiation, get_public_rooms, sign_auction_contract, sign_negotiation_contract
 )
 from db import JSONEncoder
 
@@ -439,6 +439,13 @@ def get_negotiation_full(neg_id):
     app.logger.info("%s requesting negotiation %s", username, neg_id)
 
     negotiation = get_negotiation(neg_id)
+    print(negotiation)
+    if negotiation["status"] == "accepted":
+        contract_id = negotiation["contract_template"]
+        negotiation["contract"] = sign_negotiation_contract(neg_id, contract_id)
+    else:
+        negotiation["contract"] = ""
+
     return JSONEncoder().encode(negotiation), 200
 
 
