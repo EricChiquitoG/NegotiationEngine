@@ -640,7 +640,7 @@ def list_contracts():
     return list(map(convert_contract, contracts))
 
 
-def create_contract(template, values):
+def create_contract2(template, values):
     s = Template(template["body"]).safe_substitute(values)
     return {
         **values,
@@ -667,7 +667,7 @@ def sign_auction_contract(auction_id, contract_id):
     values["buyersign"] = auction["payload"]["buyersign"]["val"][0]
     values["sellersign"] = auction["payload"]["sellersign"]["val"][0]
 
-    return create_contract(template, values)
+    return create_contract2(template, values)
 
 
 def sign_negotiation_contract(negotiation_id, contract_id):
@@ -687,4 +687,4 @@ def sign_negotiation_contract(negotiation_id, contract_id):
     values["buyersign"] = negotiation["buyersign"]
     values["sellersign"] = negotiation["sellersign"]
     
-    return create_contract(template, values)
+    return create_contract2(template, values)
