@@ -1,6 +1,7 @@
 from codecs import ignore_errors
 
 from datetime import datetime, date
+from operator import neg
 #from turtle import distance
 
 from bson import ObjectId
@@ -22,15 +23,16 @@ import os
 # client = MongoClient("mongodb+srv://EricTest:test@cluster0.ozw3z.mongodb.net/myFirstDatabase?retryWrites=true&w=majority", ssl=True,ssl_cert_reqs='CERT_NONE')
 client = MongoClient(os.environ.get("DATABASE_URL"))
 
-chat_db = client.get_database("ChatDB")
-users_collection = chat_db.get_collection("users")
-rooms_collection = chat_db.get_collection("rooms")
-room_members_collection = chat_db.get_collection("room_members")
-messages_collection = chat_db.get_collection("messages")
-templates_collection=chat_db.get_collection("templates")
-room_details=chat_db.get_collection("room_details")
-nego=chat_db.get_collection("negotiations")
-nego_details=chat_db.get_collection("negotiation_details")
+negengine_db = client.get_database("NegotiationEngine")
+users_collection = negengine_db.get_collection("users")
+
+room_members_collection = negengine_db.get_collection("room_members")
+bids_collection = negengine_db.get_collection("bids")
+templates_collection=negengine_db.get_collection("templates")
+
+nego=negengine_db.get_collection("negotiations")
+nego_details=negengine_db.get_collection("negotiation_details")
+
 
 class JSONEncoder(json.JSONEncoder):
     def default(self, o):
@@ -48,17 +50,19 @@ def add_template():
     templates_collection.insert_one({'_id':temp_id,'temp_type':temp_type,'template':temp})
 
 
-def save_user(username, email, password,sign,location):
+def save_user(username, email, password):
     password_hash = generate_password_hash(password)
     salt = uuid.uuid4().hex
     hashsign = hashlib.sha256(salt.encode() + password.encode()).hexdigest() + ':' + salt
-    
-    users_collection.insert_one({'type':'user','_id': ObjectId(),'username':username, 'email': email, 'password': password_hash,'sign':hashsign,'location':location})
+    users_collection.insert_one({'type':'user','_id': ObjectId(),'username':username, 'email': email, 'password': password_hash,'sign':hashsign})
+
+def add_loc(user,room_id, location):
+    room_members_collection.update_one({'_id.room_id':room_id,'_id.username':user},{'$set':{'location':location}})
 
 
-def get_user(username):
-    user_data = users_collection.find_one({'username': username})
-    return User(user_data['username'], user_data['email'], user_data['password'],user_data['sign'],user_data['location']) if user_data else None
+def get_user_loc(user,room_id):
+    member_data=room_members_collection.find_one({'_id.room_id':room_id,'_id.username':user})
+    return member_data['location']
 
 def get_sign(username):
     user_data = users_collection.find_one({'username': username})
@@ -68,14 +72,14 @@ def get_sign(username):
 # New function that returns auction ids of the public ones
 def get_public():
     public=[]
-    pub=list(rooms_collection.find({'privacy':"public"}))
+    pub=list(nego.find({'privacy':"public"}))
     for i in pub:
         public.append(ObjectId(i['_id']))
     
     return public
 
 
-def find_rooms(room_name,reference_sector,reference_type,ongoing,user ,distance):
+def find_rooms(room_name,reference_sector,reference_type,ongoing,user ,distance,location):
     filtro={}
 
 
@@ -85,14 +89,15 @@ def find_rooms(room_name,reference_sector,reference_type,ongoing,user ,distance)
     if reference_type is not None: filtro['payload.reference_type.val.0'] = reference_type
     if ongoing == 'True': filtro['payload.closing_time.val.0'] = {'$gte' : datetime.utcnow() }
     # Create a filter for the distance
+    print(user,location)
     if distance is not None:
-        names,todos = get_distances(user,distance)
+        names,todos = get_distances(user,location,distance) ##
         filtro['payload.created_by.val.0']={'$in':names}
     else:
-        names,todos = get_distances(user,10000)
+        names,todos = get_distances(user,location,10000)
         filtro['payload.created_by.val.0']={'$in':names}
     
-    auctions=list(room_details.find(filtro))
+    auctions=list(nego_details.find(filtro))
 
     values_of_key = [a_dict['payload']['created_by']['val'][0] for a_dict in auctions]
     
@@ -109,28 +114,46 @@ def find_rooms(room_name,reference_sector,reference_type,ongoing,user ,distance)
     l=list(filter(lambda d: d['payload']['created_by']['val'][0] in values_of_key, auctions))
     final=list(filter(lambda d: d['_id'] in pub, l))
     return(JSONEncoder().encode(final))
+    
+def dict_flatten(in_dict, dict_out=None, parent_key=None, separator="_"):
+   if dict_out is None:
+      dict_out = {}
 
+   for k, v in in_dict.items():
+      k = f"{k}" if parent_key else k
+      if isinstance(v, dict):
+         dict_flatten(in_dict=v, dict_out=dict_out, parent_key=k)
+         continue
 
-## This function returns a list with the distances relative to the bidder to all the users and filters by distance
-def get_distances(bidder,dist):
-    base=list(users_collection.find({},{'location':0}))
+      dict_out[k] = v
+
+   return dict_out
+
+def get_distances(username,location,dist):
+    """
+    The purpose of this function is the calculation of distances between user and created rooms
+    """
+    distances=[]
+    keys = ['_id','dist']
+    base=list(nego.find({},{'location':0})) ## Retrieves every user in the base except location
     for d in base:
-        d['dist']=distance_calc(bidder,d['username'])
+        d['dist']=distance_calc(location,d['payload']['location']['val'][0]) ## Calculates distance based on the name of the user and every user
         d.pop('location',None)
-    filtered_users=[x for x in base if float(x['dist'])<=float(dist) and x['username']!=bidder]
-    my_list = list(map(lambda x: x['username'], filtered_users))
-    for d in filtered_users:
-        d['created_by']=d.pop('username')
-    l=list(filter(lambda d: d['created_by'] in my_list, filtered_users))
-    return my_list,filtered_users
+        #d=dict_flatten(d)
+        dict2 = {x:d[x] for x in keys}
+        dict2['created_by']=d['payload']['created_by']['val'][0]
+        distances.append(dict2)
+    all_data_filt=[x for x in distances if float(x['dist'])<=float(dist) and x['created_by']!=username]
+    filt_id = list(map(lambda x: x['created_by'], all_data_filt))  #returns the id rather than the usernames for those whose are electible
+    return filt_id,all_data_filt
 
-
-def distance_calc(bidder,owner):
-    distance=geodesic(ast.literal_eval(get_distance(bidder)),ast.literal_eval(get_distance(owner))).km
+def distance_calc(bidder_loc,owner_loc):
+    distance=geodesic(ast.literal_eval(bidder_loc),ast.literal_eval(owner_loc)).km
     return distance
 
-def save_room(privacy, room_name, created_by,auction_type, highest_bid,highest_bidder,closing_time,sellersign,buyersign,templatetype):
-    room_id = rooms_collection.insert_one(
+
+def save_room(privacy, room_name, created_by,auction_type, highest_bid,highest_bidder,closing_time,sellersign,buyersign,templatetype,location):
+    room_id = nego.insert_one(
         {'type':'auction','_id':ObjectId(),'privacy':privacy,
         'payload':{'name': {'val':[room_name]},
                  'created_by': {'val':[created_by]}, 
@@ -141,13 +164,14 @@ def save_room(privacy, room_name, created_by,auction_type, highest_bid,highest_b
                  'closing_time':{'val':[closing_time]},
                  'sellersign':{'val':[sellersign]},
                  'buyersign':{'val':[buyersign]},
-                 'templatetype':{'val':[templatetype]}}}).inserted_id
-    add_room_member(room_id, room_name, created_by, created_by, is_room_admin=True)
+                 'templatetype':{'val':[templatetype]},
+                 'location':{'val':[location]},}}).inserted_id
+    add_room_member(room_id, room_name, created_by, created_by,location, is_room_admin=True)
     return room_id
 
 def save_param(room_id,created_by,room_name,reference_sector,reference_type, quantity, articleno):
-    room=rooms_collection.find_one({'_id': ObjectId(room_id)})
-    room_details.insert_one(
+    room=nego.find_one({'_id': ObjectId(room_id)})
+    nego_details.insert_one(
         {'type':'details','_id': ObjectId(room_id),
         'payload':{'room_name':{'val':[room_name]},
                 'created_by':{'val':[created_by]},
@@ -159,32 +183,32 @@ def save_param(room_id,created_by,room_name,reference_sector,reference_type, qua
 
 # Currently is not being used
 def update_room(room_id, room_name):
-    rooms_collection.update_one({'_id': ObjectId(room_id)}, {'$set': {'name': room_name}})
+    nego.update_one({'_id': ObjectId(room_id)}, {'$set': {'name': room_name}})
     room_members_collection.update_many({'_id.room_id': ObjectId(room_id)}, {'$set': {'room_name': room_name}})
 
 
 def get_room(room_id):
-    return rooms_collection.find_one({'_id': ObjectId(room_id)})
+    return nego.find_one({'_id': ObjectId(room_id)})
 
 
-def add_room_member(room_id, room_name, username, added_by, is_room_admin=False):
+def add_room_member(room_id, room_name, username, added_by, location, is_room_admin=False):
     room_members_collection.insert_one(
         {'_id': {'room_id': ObjectId(room_id), 'username': username}, 'room_name': room_name, 'added_by': added_by,
-         'added_at': datetime.utcnow(), 'is_room_admin': is_room_admin})
+         'added_at': datetime.utcnow(),'location':location, 'is_room_admin': is_room_admin})
 
 
 def add_room_members(room_id, room_name, usernames, added_by):
     room_members_collection.insert_many(
         [{'_id': {'room_id': ObjectId(room_id), 'username': username}, 'room_name': room_name, 'added_by': added_by,
-          'added_at': datetime.utcnow(), 'is_room_admin': False} for username in usernames])
+          'added_at': datetime.utcnow(), 'location':'', 'is_room_admin': False} for username in usernames])
 
 ### Get the highest bids in current auction for each active user
 def get_bidders(room_id):
     safe=[]
-    room=rooms_collection.find_one({'_id': ObjectId(room_id)})
+    room=nego.find_one({'_id': ObjectId(room_id)})
     if room['payload']['auction_type']['val'][0]=="Ascending":
 
-        hb=list(messages_collection.aggregate([ {'$unwind':'$payload.text.val'},
+        hb=list(bids_collection.aggregate([ {'$unwind':'$payload.text.val'},
                                                 {'$unwind':'$payload.sender.val'},
                                                 {'$unwind':'$payload.created_at.val'},
                                                 {'$unwind':'$payload.sign.val'},
@@ -201,7 +225,7 @@ def get_bidders(room_id):
                                                                         }}
                                                                         ]))
     else:
-        hb=list(messages_collection.aggregate([ {'$unwind':'$payload.text.val'},
+        hb=list(bids_collection.aggregate([ {'$unwind':'$payload.text.val'},
                                                 {'$unwind':'$payload.sender.val'},
                                                 {'$unwind':'$payload.created_at.val'},
                                                 {'$unwind':'$payload.sign.val'},
@@ -232,10 +256,12 @@ def get_room_admin(room_id):
     room= room_members_collection.find_one({'room_name': room_id,"is_room_admin":True})
     return room['_id']['username']
 
-def get_distance(username):
+
+""" def get_distance(username):
     dist=users_collection.find_one({'username':username})
-    
-    return dist['location']
+    print(dist['location'])
+    return dist['location'] """
+
 
 def get_room_members(room_id):
     return list(room_members_collection.find({'_id.room_id': ObjectId(room_id)}))
@@ -252,8 +278,8 @@ def is_room_admin(room_id, username):
         {'_id': {'room_id': ObjectId(room_id), 'username': username}, 'is_room_admin': True})
 
 
-def save_message(room_id, text, sender, sign,distance):
-    messages_collection.insert_one({'type':'bid','_id':ObjectId(), 'room_id': room_id, 
+def save_bid(type_neg,room_id, text, sender, sign,distance):
+    bids_collection.insert_one({'type':type_neg,'_id':ObjectId(), 'room_id': room_id, 
                                 'payload': {'text':{'val':[text]}, 
                                 'sender': {'val':[sender]}, 
                                 'created_at': {'val':[datetime.utcnow()]},
@@ -267,12 +293,12 @@ def get_hb(room_id,username):   #Custom function that gets the highest bid value
 
 
 def get_hbidder(room_id): 
-    hb=rooms_collection.find_one({'_id': ObjectId(room_id)})
+    hb=nego.find_one({'_id': ObjectId(room_id)})
     valor=hb['payload']['highest_bidder']['val'][0]
     return valor
 
 def get_template(room_id):
-    hb=rooms_collection.find_one({'_id': ObjectId(room_id)})
+    hb=nego.find_one({'_id': ObjectId(room_id)})
     ph=templates_collection.find_one({'temp_type': hb['payload']['templatetype']['val'][0]})
     valor=ph['template']
     return valor
@@ -284,19 +310,19 @@ def get_t(temp_type):
     return valor
 
 def get_closing(room_id):   #Custom function that gets the highest bid value for a particular auction entry
-    hb=rooms_collection.find_one({'_id': ObjectId(room_id)})
+    hb=nego.find_one({'_id': ObjectId(room_id)})
     valort=hb['payload']['closing_time']['val'][0]
     return valort
 
 def update_bid(room_id,highest_bid,highest_bidder,buyersign):
-    rooms_collection.update_one({'_id': ObjectId(room_id)}, {'$set': {'payload.highest_bid.val.0': highest_bid}})
-    rooms_collection.update_one({'_id': ObjectId(room_id)}, {'$set': {'payload.highest_bidder.val.0': highest_bidder}})
-    rooms_collection.update_one({'_id': ObjectId(room_id)}, {'$set': {'payload.buyersign.val.0': buyersign}})
+    nego.update_one({'_id': ObjectId(room_id)}, {'$set': {'payload.highest_bid.val.0': highest_bid}})
+    nego.update_one({'_id': ObjectId(room_id)}, {'$set': {'payload.highest_bidder.val.0': highest_bidder}})
+    nego.update_one({'_id': ObjectId(room_id)}, {'$set': {'payload.buyersign.val.0': buyersign}})
 
 def get_messages(room_id, page=0):
    
     messages = list(
-        messages_collection.find({'room_id': room_id}))
+        bids_collection.find({'room_id': room_id}))
     #for message in messages:
     #    message['payload']['created_at']['val'][0] = message['payload']['created_at']['val'][0].strftime("%d %b, %H:%M:%S")
     return messages
@@ -308,8 +334,8 @@ def ended(room_id, contract_title):
     highest_bidder=get_hbidder(room_id)
     if highest_bidder:
         template=Template(get_template(contract_title))
-        room=rooms_collection.find_one({'_id': ObjectId(room_id)})
-        room_d=room_details.find_one({'_id': ObjectId(room_id)})
+        room=nego.find_one({'_id': ObjectId(room_id)})
+        room_d=nego_details.find_one({'_id': ObjectId(room_id)})
         d=dict(buyer=room['payload']['highest_bidder']['val'][0],quantity=room_d['payload']['quantity']['val'][0], item=room_d['payload']['articleno']['val'][0],ammount=highest_bid,date=room['payload']['closing_time']['val'][0],owner=room['payload']['created_by']['val'][0],buyersign=room['payload']['buyersign']['val'][0],sellersign=room['payload']['sellersign']['val'][0])
         signed_c=template.safe_substitute(d)
         return(signed_c)
@@ -341,7 +367,7 @@ def owned_auctions(user_id,owner):
     owned=[]
     d={}
 
-    auctions=list(rooms_collection.find({'_id':{'$in':auction_id}}))
+    auctions=list(nego.find({'_id':{'$in':auction_id}}))
     
     for i in auctions:
         d.update({'_id':i['_id']})
@@ -363,12 +389,13 @@ def owned_auctions(user_id,owner):
 def get_neg(room_id):
     return nego.find_one({'_id': ObjectId(room_id)})
 
-def save_room2(room_name, created_by,seller,highest_bidder,sellersign,buyersign,templatetype, bid,distance):
+def save_room2(room_name, created_by,seller,loc_id,highest_bidder,sellersign,buyersign,templatetype, bid,distance):
     room_id = nego.insert_one(
         {'type':'negotiation','_id':ObjectId(),'privacy':'private',
         'payload':{'name': {'val':[room_name]},
                  'created_by': {'val':[created_by]}, 
                  'seller': {'val':[seller]}, 
+                 'loc_id': {'val':[loc_id]}, 
                  'created_at': {'val':[datetime.utcnow()]},
                  'end_date': {'val':[None]},
                  'current_offer':{'val':[bid]},
@@ -381,8 +408,11 @@ def save_room2(room_name, created_by,seller,highest_bidder,sellersign,buyersign,
     # Fetching auctions fails if this is added, not sure if it is needed or not
     # but we'll keep it disabled.
     #add_room_member(room_id, room_name, created_by, created_by, is_room_admin=True)
-    save_message(room_id,bid,created_by,buyersign,distance)
+    save_bid('negotiation',room_id,bid,created_by,buyersign,distance)
     return room_id
+
+
+
 
 def save_param2(room_id,created_by,room_name,reference_sector,reference_type, quantity, articleno):
     nego_details.insert_one(
@@ -560,20 +590,20 @@ def get_rooms_by_username(username):
 
 
 def get_public_rooms(skip, count):
-    rooms = list(rooms_collection.find({ "privacy": "Public"}).sort("_id", 1).skip(skip).limit(count))
-    total_rooms = rooms_collection.count_documents({ "privacy": "Public" })
+    rooms = list(nego.find({ "privacy": "Public"}).sort("_id", 1).skip(skip).limit(count))
+    total_rooms = nego.count_documents({ "privacy": "Public" })
     return (rooms, total_rooms)
 
 
 def get_room_details(room_id):
-    return room_details.find_one({ '_id': ObjectId(room_id) })
+    return nego_details.find_one({ '_id': ObjectId(room_id) })
 
 
 def get_all_rooms_by_id(room_ids):
     """
     Retrives rooms by room ids.
     """
-    return rooms_collection.find({
+    return nego.find({
         '_id': { '$in': room_ids }
     })
 
@@ -582,7 +612,7 @@ def get_room_details_by_ids(room_ids):
     """
     Retrieves room details from a list of room ids.
     """
-    return room_details.find({ '_id': { '$in': room_ids } })
+    return nego_details.find({ '_id': { '$in': room_ids } })
 
 
 def create_contract(title, body):

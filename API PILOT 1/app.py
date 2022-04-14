@@ -16,11 +16,11 @@ import logging
 
 from db import (
     neg_info, save_param2,sign_contract,change_status, get_neg,owned_auctions,get_bidders,find_rooms,distance_calc,
-    ended,get_template,get_t,get_distance,get_room_admin,save_param,add_room_member,add_room_members, save_room2,update_bid,
+    ended,get_template,get_t,get_room_admin,save_param,add_room_member,add_room_members, save_room2,update_bid,
     get_closing,get_hb,get_sign,get_hbidder, get_messages, get_room, get_room_members, get_rooms_for_user, get_user, is_room_admin,
-    is_room_member, remove_room_members, save_message, save_room, save_user, update_room, get_room_details, get_room_details_by_ids,
+    is_room_member, remove_room_members, save_bid, save_room, save_user, update_room, get_room_details, get_room_details_by_ids,
     get_all_rooms_by_id, get_rooms_by_username, get_negotiations_by_username, create_contract, get_contract, list_contracts,
-    get_negotiation, get_public_rooms, sign_auction_contract, sign_negotiation_contract
+    get_negotiation, get_public_rooms, sign_auction_contract, sign_negotiation_contract, get_user_loc,add_loc
 )
 from db import JSONEncoder
 
@@ -114,6 +114,7 @@ def create_room():
         sellersign=get_sign(user)
         buyersign=''
         templatetype=request.form.get('templatetype')
+        location=request.form.get('auction_location')
         if(request.form.get('members')):
             usernames = [username.strip() for username in request.form.get('members').split(',')]
         else: 
@@ -121,7 +122,7 @@ def create_room():
 
         if len(room_name) and len(usernames):
                       
-            room_id = save_room(privacy, room_name, user,auction_type,highest_bid,highest_bidder,closing_time,sellersign,buyersign,templatetype)
+            room_id = save_room(privacy, room_name, user,auction_type,highest_bid,highest_bidder,closing_time,sellersign,buyersign,templatetype,location)
             save_param(room_id,user,room_name,reference_sector,reference_type,quantity,articleno)
             if user in usernames:
                 usernames.remove(user)
@@ -129,7 +130,7 @@ def create_room():
                 add_room_members(room_id, room_name, usernames, user)
             return {"message":"The room {} has been created id: {}".format(str(room_name),room_id)},200
         else:
-            return {"message":"Unable to create room"},400
+            return {"message":"Unable to create room"},400  #Reformat to make it clearer
 
 
 # Edit room also is not enabled but should work with little effort if needed
@@ -166,16 +167,24 @@ def edit_room(room_id):
 @app.route('/rooms/<room_id>/join', methods=['GET'])
 #@login_required
 def join_room(room_id):
+    """
+    This function is used when user is joining a particular auction.
+    The same function is used when a user already in an auction submits a request WITHOUT the location field
+    """
     room = get_room(room_id)
     room_name=room['payload']['name']['val'][0]
     user=request.authorization.username
+    location=request.json.get("location")
 
     existing_room_members = [member['_id']['username'] for member in get_room_members(room_id)]
     if request.method == 'GET':
         new_members = user
         if new_members in list(set(existing_room_members)):
+            if get_user_loc(user,room_id)=='':
+                add_loc(user,room_id,location)
+                return{"message":"Added location for user"},200
             return {"message":"You are already in a room"},200
-        add_room_member(room_id, room_name, new_members, user)
+        add_room_member(room_id, room_name, new_members, user, location)
 
         
     return {"message":"You have joined the room {}".format(str(room_name))},200
@@ -188,7 +197,7 @@ def join_room(room_id):
 
 @app.route('/rooms/<room_id>', methods=['GET','POST'])
 #@login_required
-def chat(room_id):
+def bid(room_id):
     room = get_room(room_id)
     rn=room['payload']['name']['val'][0]
     closing_time=get_closing(room_id)
@@ -199,17 +208,20 @@ def chat(room_id):
         ## The event for the timeout message could go here
         
         if request.method=='POST':
-            bid=request.form.get("message_input")
+            bid=request.form.get("bid")
+            bidder_loc=get_user_loc(user,room_id)
             if (closing_time)>datetime.utcnow():
                 if(is_room_admin(room_id,user)==0):
-                    app.logger.info("{} has summited a new bid to the room {}: {}".format(user,
-                                                                            rn,
-                                                                            bid))
+                    if bidder_loc=='': ##If user has no location in the auction, error will rise 
+                        return{"message":"User has no location associated with this room"},404     
                     sign=get_sign(user)
                     ## Calculation of distance between users done at every bid
-                    distance=distance_calc(user,get_room_admin(rn))
+                    distance=distance_calc(bidder_loc,room['payload']['location']['val'][0])
                     #
-                    save_message(str(room['_id']),bid,user,sign,distance)                    
+                    save_bid('auction',str(room['_id']),bid,user,sign,distance)  
+                    app.logger.info("{} has summited a new bid to the room {}: {}".format(user,
+                                                                            rn,
+                                                                            bid))                  
                 else:
                     app.logger.info("Cannot bid if you are Admin")  
                     return{"message":"You cannot issue bids as room admin"},400                          
@@ -300,13 +312,14 @@ def winner(room_id):
 def query():
     if request.method=='GET':
         user=request.authorization.username
+        room_type=request.json.get("room_type")
         room_name=request.json.get("room_name")
         reference_sector=request.json.get("reference_sector")
         reference_type=request.json.get("reference_type")
         ongoing=request.json.get("ongoing")
         distance= request.json.get("distance")
-        
-        auctions=find_rooms(room_name,reference_sector,reference_type,ongoing,user,distance)
+        location=request.json.get("location") ##Needed
+        auctions=find_rooms(room_name,reference_sector,reference_type,ongoing,user,distance,location)
         return auctions,200
 
 
@@ -338,19 +351,20 @@ def new_neg():
     bid=request.form.get('price')
     bidder=request.authorization.username
     seller=request.form.get('seller')
+    seller_loc=request.form.get('seller_loc_id') #this parameter should be fed with the location embeded to the offers, shall this be in the url let me know
     reference_sector=request.form.get('reference_sector')
     reference_type=request.form.get('reference_type')
     quantity=request.form.get('quantity')
     articleno=request.form.get('articleno')
     user=request.authorization.username
-    
+    user_location=request.form.get('bid_loc_id')
     buyersign=get_sign(user)
     sellersign=''
     templatetype=request.form.get('templatetype')
-    distance=distance_calc(bidder,seller)
+    distance=distance_calc(user_location,seller_loc)
     
     #The following function may be changed to iterate if multiple roles are requested
-    room_id=save_room2(room_name,bidder,seller,bidder,sellersign,buyersign,templatetype,bid,distance)
+    room_id=save_room2(room_name,bidder,seller,seller_loc,sellersign,buyersign,templatetype,bid,distance)
     save_param2(room_id,user,room_name,reference_sector,reference_type,quantity,articleno)
     return {"message":"The negotiation with id {} has been created".format(str(room_id))},200
 
@@ -365,14 +379,17 @@ def neg(neg_id):
 
     if request.method == 'POST':
         bid = request.form.get('bid')
+        #bidder_loc_id=request.form.get('loc_id')
+        #bidder_loc=get_user_loc(user,neg_id)
         creator = req['payload']['created_by']['val'][0]
         participant = req['payload']['seller']['val'][0]
+        #neg_loc=req['payload']['location']['val'][0]
         status = req['payload']['status']['val'][0]
 
         if user in (creator, participant):
             if status not in ('accepted', 'rejected'):
-                distance = distance_calc(creator, participant)
-                save_message(neg_id, bid, user, get_sign(user), distance)
+                #distance = distance_calc(bidder_loc, neg_loc) No point in adding distance in every bid as is a p2p
+                save_bid('negotiation',neg_id, bid, user, get_sign(user), 'na')
                 change_status(neg_id, 1, user, bid)
 
                 return { "message": "New offer submited for request with id {}".format(str(req['_id'])) }, 200
