@@ -1,3 +1,4 @@
+from crypt import methods
 from datetime import datetime
 from dis import dis
 #from turtle import distance
@@ -20,7 +21,8 @@ from db import (
     get_closing,get_hb,get_sign,get_hbidder, get_messages, get_room, get_room_members, get_rooms_for_user, get_user, is_room_admin,
     is_room_member, remove_room_members, save_bid, save_room, save_user, update_room, get_room_details, get_room_details_by_ids,
     get_all_rooms_by_id, get_rooms_by_username, get_negotiations_by_username, create_contract, get_contract, list_contracts,
-    get_negotiation, get_public_rooms, sign_auction_contract, sign_negotiation_contract, get_user_loc,add_loc
+    get_negotiation, get_public_rooms, sign_auction_contract, sign_negotiation_contract, get_user_loc,add_loc,represented_cont,
+    detect_broker,broker_contracts,new_broker
 )
 from db import JSONEncoder
 
@@ -115,6 +117,14 @@ def create_room():
         buyersign=''
         templatetype=request.form.get('templatetype')
         location=request.form.get('auction_location')
+        is_broker=request.form.get('is_broker')
+        broker_id=request.form.get('broker_id')
+        if is_broker:
+            broker_contract=represented_cont(broker_id)
+            represented_by=user
+            user=broker_contract['represented']
+        else: 
+            broker_id,represented_by='',''
         if(request.form.get('members')):
             usernames = [username.strip() for username in request.form.get('members').split(',')]
         else: 
@@ -122,7 +132,7 @@ def create_room():
 
         if len(room_name) and len(usernames):
                       
-            room_id = save_room(privacy, room_name, user,auction_type,highest_bid,highest_bidder,closing_time,sellersign,buyersign,templatetype,location)
+            room_id = save_room(privacy, room_name, user,auction_type,highest_bid,highest_bidder,closing_time,sellersign,buyersign,templatetype,location,is_broker,broker_id,represented_by)
             save_param(room_id,user,room_name,reference_sector,reference_type,quantity,articleno)
             if user in usernames:
                 usernames.remove(user)
@@ -162,6 +172,7 @@ def edit_room(room_id):
         return "Room not found", 404
 
 
+
 # GET request to this route has to include room_id for the room you want to join but no aditional parameters are needed
 
 @app.route('/rooms/<room_id>/join', methods=['GET'])
@@ -170,22 +181,42 @@ def join_room(room_id):
     """
     This function is used when user is joining a particular auction.
     The same function is used when a user already in an auction submits a request WITHOUT the location field
+
+    In the case a user is broker, it gets requested what is the broker_id which can be get with the broker view
     """
     room = get_room(room_id)
     room_name=room['payload']['name']['val'][0]
     user=request.authorization.username
     location=request.json.get("location")
+    is_broker=request.json.get("is_broker")  ##Ideally a checkbox in frontend
+    broker_id=request.json.get("broker_id")  ##Only required if the checkbox is on
+
 
     existing_room_members = [member['_id']['username'] for member in get_room_members(room_id)]
     if request.method == 'GET':
         new_members = user
-        if new_members in list(set(existing_room_members)):
-            if get_user_loc(user,room_id)=='':
-                add_loc(user,room_id,location)
-                return{"message":"Added location for user"},200
-            return {"message":"You are already in a room"},200
-        add_room_member(room_id, room_name, new_members, user, location)
-
+        if is_broker==True:
+            ## Get name of representant and change user to that one
+            broker_contract=represented_cont(broker_id)
+            represented_by=user
+            user=broker_contract['represented']
+            if new_members in list(set(existing_room_members)):
+                if get_user_loc(user,room_id)=='':
+                    if location:
+                        add_loc(user,room_id,location,is_broker,broker_id)
+                        return{"message":"Added location for user"},200
+                    else:  return {"message":"User has no location"},404
+                return {"message":"You are already in a room"},200
+            add_room_member(room_id, room_name, new_members, user, location,is_broker,broker_id,represented_by)
+        else:
+            if new_members in list(set(existing_room_members)):
+                if get_user_loc(user,room_id)=='':
+                    if location:
+                        add_loc(user,room_id,location,False,'')
+                        return{"message":"Added location for user"},200
+                    else:  return {"message":"User has no location"},404
+                return {"message":"You are already in a room"},200
+            add_room_member(room_id, room_name, new_members, user, location,False,'','')
         
     return {"message":"You have joined the room {}".format(str(room_name))},200
 
@@ -201,7 +232,9 @@ def bid(room_id):
     room = get_room(room_id)
     rn=room['payload']['name']['val'][0]
     closing_time=get_closing(room_id)
-    user=request.authorization.username
+    broker_represented=detect_broker(room_id,user) #Returns name of represented user if true, false otherwise
+
+    user=broker_represented if broker_represented else request.authorization.username
 
     if room and is_room_member(room_id, user):
         
@@ -266,6 +299,10 @@ def winner(room_id):
     contract_title = room['payload']['templatetype']['val'][0]
     
     user=request.authorization.username
+
+    broker_represented=detect_broker(room_id,user) #Returns name of represented user if true, false otherwise
+
+    user=broker_represented if broker_represented else request.authorization.username
 ## Withing this function the logic for the winner selection is specified, the admin shall input the username of the winner
     if request.method=='POST':
         
@@ -310,6 +347,7 @@ def winner(room_id):
 @app.route('/rooms', methods=['GET'])
 #@login_required
 def query():
+    
     if request.method=='GET':
         user=request.authorization.username
         room_type=request.json.get("room_type")
@@ -319,6 +357,11 @@ def query():
         ongoing=request.json.get("ongoing")
         distance= request.json.get("distance")
         location=request.json.get("location") ##Needed
+        is_broker=request.json.get('is_broker')
+        broker_id=request.json.get('broker_id')
+        if is_broker:
+            broker_contract=represented_cont(broker_id)
+            user=broker_contract['represented']
         auctions=find_rooms(room_name,reference_sector,reference_type,ongoing,user,distance,location)
         return auctions,200
 
@@ -327,6 +370,11 @@ def query():
 def myauct_a():
     if request.method=='GET':
         user=request.authorization.username
+        is_broker=request.json.get('is_broker')
+        broker_id=request.json.get('broker_id')
+        if is_broker:
+            broker_contract=represented_cont(broker_id)
+            user=broker_contract['represented']
         owner=True
         auct=owned_auctions(user,owner)
         return auct,200 
@@ -336,6 +384,11 @@ def myauct_a():
 def myauct_u():
     if request.method=='GET':
         user=request.authorization.username
+        is_broker=request.json.get('is_broker')
+        broker_id=request.json.get('broker_id')
+        if is_broker:
+            broker_contract=represented_cont(broker_id)
+            user=broker_contract['represented']
         owner=False
         auct=owned_auctions(user,owner)
         return auct,200 
@@ -356,16 +409,20 @@ def new_neg():
     reference_type=request.form.get('reference_type')
     quantity=request.form.get('quantity')
     articleno=request.form.get('articleno')
-    user=request.authorization.username
     user_location=request.form.get('bid_loc_id')
-    buyersign=get_sign(user)
+    buyersign=get_sign(bidder)
     sellersign=''
     templatetype=request.form.get('templatetype')
     distance=distance_calc(user_location,seller_loc)
+    is_broker=request.form.get('is_broker')
+    broker_id=request.form.get('broker_id')
+    if is_broker:
+        broker_contract=represented_cont(broker_id)
+        bidder=broker_contract['represented']
     
     #The following function may be changed to iterate if multiple roles are requested
     room_id=save_room2(room_name,bidder,seller,seller_loc,sellersign,buyersign,templatetype,bid,distance)
-    save_param2(room_id,user,room_name,reference_sector,reference_type,quantity,articleno)
+    save_param2(room_id,bidder,room_name,reference_sector,reference_type,quantity,articleno)
     return {"message":"The negotiation with id {} has been created".format(str(room_id))},200
 
 
@@ -374,13 +431,14 @@ def new_neg():
 @app.route("/negotiate/<neg_id>", methods=['GET','POST'])
 def neg(neg_id):
     user = request.authorization.username
+    broker_represented=detect_broker(neg_id,user) #Returns name of represented user if true, false otherwise
+
+    user=broker_represented if broker_represented else request.authorization.username
     req = get_neg(neg_id)
     name = req['payload']['name']['val'][0]
 
     if request.method == 'POST':
         bid = request.form.get('bid')
-        #bidder_loc_id=request.form.get('loc_id')
-        #bidder_loc=get_user_loc(user,neg_id)
         creator = req['payload']['created_by']['val'][0]
         participant = req['payload']['seller']['val'][0]
         #neg_loc=req['payload']['location']['val'][0]
@@ -400,11 +458,13 @@ def neg(neg_id):
     
     elif (request.method=='GET'):
         status = req['payload']['status']['val'][0]
-        if status == 'accepted':
-            s = sign_contract(neg_id)
-            return  {"Contract": "{}".format(s)}, 200
-        else:
-            return(neg_info(neg_id)), 200
+        if user in (creator, participant):
+            if status == 'accepted':
+                s = sign_contract(neg_id)
+                return  {"Contract": "{}".format(s)}, 200
+            else:
+                return(neg_info(neg_id)), 200
+        else: return{'message':'Cannot access negotiation as user is not part of it'},403
 
 
 # Only accesible to the owner of such resource, this route accepts the negotiation and begins the contract signing
@@ -412,6 +472,8 @@ def neg(neg_id):
 def accept(req_id):
     user=request.authorization.username
     req=get_neg(req_id)
+    broker_represented=detect_broker(req_id,user) #Returns name of represented user if true, false otherwise
+    user=broker_represented if broker_represented else request.authorization.username
     if user != req['payload']['offer_user']['val'][0]:
         if (user == req['payload']['created_by']['val'][0]) or ((user == req['payload']['seller']['val'][0])):
             flag=change_status(req_id, 'accept',user,0)
@@ -432,6 +494,9 @@ def accept(req_id):
 def cancel(req_id):
     req=get_neg(req_id)
     user=request.authorization.username
+    broker_represented=detect_broker(req_id,user) #Returns name of represented user if true, false otherwise
+
+    user=broker_represented if broker_represented else request.authorization.username
     if user != req['payload']['offer_user']['val'][0]:
         if (user == req['payload']['created_by']['val'][0]) or ((user == req['payload']['seller']['val'][0])):
             flag=change_status(req_id, 'reject',user,0)
@@ -450,10 +515,13 @@ def cancel(req_id):
 @app.route("/negotiate/<neg_id>/full", methods=["GET"])
 def get_negotiation_full(neg_id):
     """
-    Gets the full information of a negotiation. This includes the negotation and
+    Gets the full information of a negotiation. This includes the negotiation and
     its details.
     """
     username = request.authorization.username
+    broker_represented=detect_broker(neg_id,username) #Returns name of represented user if true, false otherwise
+
+    username=broker_represented if broker_represented else request.authorization.username
     app.logger.info("%s requesting negotiation %s", username, neg_id)
 
     negotiation = get_negotiation(neg_id)
@@ -473,6 +541,11 @@ def list_negotiations():
     Gets a list of all the negotiations a user is part of.
     """
     username = request.authorization.username
+    is_broker=request.form.get('is_broker')
+    broker_id=request.form.get('broker_id')
+    if is_broker:
+        broker_contract=represented_cont(broker_id)
+        username=broker_contract['represented']
     count = request.args.get('count', default=10, type=int)
     skip = request.args.get('skip', default=0, type=int)
     app.logger.info("%s requesting negotiation list, count=%s, skip=%s", username, count, skip)
@@ -501,6 +574,9 @@ def get_room_info(room_id):
       if not a 400 Bad Request is returned.
     """
     username = request.authorization.username
+    broker_represented=detect_broker(room_id,username) #Returns name of represented user if true, false otherwise
+
+    username=broker_represented if broker_represented else request.authorization.username
     app.logger.info("%s requesting auction %s information", username, room_id)
 
     room = get_room(room_id)
@@ -535,6 +611,11 @@ def get_all_rooms():
     Returns all the rooms the user is a part of. Return room and room details with bids.
     """
     username = request.authorization.username
+    is_broker=request.form.get('is_broker')
+    broker_id=request.form.get('broker_id')
+    if is_broker:
+        broker_contract=represented_cont(broker_id)
+        username=broker_contract['represented']
     app.logger.info("%s requesting all auctions the user is part of", username)
 
     # This isn't ideal since it gets ALL the rooms the user is a part of. Even historical,
@@ -561,6 +642,11 @@ def route_list_public_auctions():
     Returns all available public auctions
     """
     username = request.authorization.username
+    is_broker=request.form.get('is_broker')
+    broker_id=request.form.get('broker_id')
+    if is_broker:
+        broker_contract=represented_cont(broker_id)
+        username=broker_contract['represented']
     skip = int_or_default(request.args.get("skip"), 0)
     limit = int_or_default(request.args.get("limit"), 20)
     app.logger.info("%s requesting all public auctions. skip: %d, limit: %d", username, skip, limit)
@@ -651,6 +737,42 @@ def route_list_contracts():
     app.logger.info("list all contracts")
     contracts = list_contracts()
     return JSONEncoder().encode(contracts), 200
+
+
+@app.route("/negotiate/<neg_id>/full", methods=["GET"])
+def get_negotiation_full(neg_id):
+    """
+    Gets the full information of a negotiation. This includes the negotation and
+    its details.
+    """
+    username = request.authorization.username
+    app.logger.info("%s requesting negotiation %s", username, neg_id)
+
+#_____________Broker_________________
+
+
+"""
+Will return broker contracts represented by the user if any,
+"""
+@app.route('/broker',methods=['GET'])
+def get_broker():
+    username = request.authorization.username
+    conts=broker_contracts(username) # returns {{'represents in':{...}},{'is represented in':{...}}}
+    return conts,200 if conts is not None else {'message':'No contracts available'},404 
+
+
+
+@app.route('/broker/new_broker',methods=["POST"])
+def add_new_broker():
+    username = request.authorization.username
+    representant=username
+    represented=request.form.get('represented_user')
+    end_date=dateutil.parser.isoparse(request.form.get('end_date'))
+    contract_id=new_broker(representant,represented,end_date)
+    return {
+    "message": "successfully created broker agreement",
+    "id": str(contract_id),
+    }, 200
 
 
 @login_manager.user_loader

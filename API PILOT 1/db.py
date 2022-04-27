@@ -2,6 +2,10 @@ from codecs import ignore_errors
 
 from datetime import datetime, date
 from operator import neg
+from re import template
+from tracemalloc import start
+from turtle import distance
+from webbrowser import get
 #from turtle import distance
 
 from bson import ObjectId
@@ -20,7 +24,6 @@ from collections import defaultdict
 import os
 
 
-# client = MongoClient("mongodb+srv://EricTest:test@cluster0.ozw3z.mongodb.net/myFirstDatabase?retryWrites=true&w=majority", ssl=True,ssl_cert_reqs='CERT_NONE')
 client = MongoClient(os.environ.get("DATABASE_URL"))
 
 negengine_db = client.get_database("NegotiationEngine")
@@ -29,7 +32,7 @@ users_collection = negengine_db.get_collection("users")
 room_members_collection = negengine_db.get_collection("room_members")
 bids_collection = negengine_db.get_collection("bids")
 templates_collection=negengine_db.get_collection("templates")
-
+broker_collection=negengine_db.get_collection("brokers")
 nego=negengine_db.get_collection("negotiations")
 nego_details=negengine_db.get_collection("negotiation_details")
 
@@ -44,20 +47,20 @@ class JSONEncoder(json.JSONEncoder):
 
 
 def add_template():
-    temp_id=1
     temp_type='article'
     temp="Hereby I $buyer, declare the purchase of $quantity units of $item for the ammount of $ammount SEK on $date from $owner. \nBuyer signature $buyersign \nSeller signature $sellersign"
-    templates_collection.insert_one({'_id':temp_id,'temp_type':temp_type,'template':temp})
+    templates_collection.insert_one({'temp_type':temp_type,'template':temp})
 
 
 def save_user(username, email, password):
     password_hash = generate_password_hash(password)
     salt = uuid.uuid4().hex
     hashsign = hashlib.sha256(salt.encode() + password.encode()).hexdigest() + ':' + salt
+    
     users_collection.insert_one({'type':'user','_id': ObjectId(),'username':username, 'email': email, 'password': password_hash,'sign':hashsign})
 
-def add_loc(user,room_id, location):
-    room_members_collection.update_one({'_id.room_id':room_id,'_id.username':user},{'$set':{'location':location}})
+def add_loc(user,room_id, location, is_broker,broker_id):
+    room_members_collection.update_one({'_id.room_id':room_id,'_id.username':user},{'$set':{'location':location,'is_broker':is_broker,'broker_id':broker_id}})
 
 
 def get_user_loc(user,room_id):
@@ -125,6 +128,29 @@ def dict_flatten(in_dict, dict_out=None, parent_key=None, separator="_"):
          dict_flatten(in_dict=v, dict_out=dict_out, parent_key=k)
          continue
 
+## This function returns a list with the distances relative to the bidder to all the users and filters by distance
+""" def get_distances(bidder,dist):
+    base=list(users_collection.find({},{'location':0})) ## Retrieves every user in the base except location
+    for d in base:
+        d['dist']=distance_calc(bidder,d['username']) ## Calculates distance based on the name of the user and every user
+        d.pop('location',None)
+    filtered_users=[x for x in base if float(x['dist'])<=float(dist) and x['username']!=bidder]
+    my_list = list(map(lambda x: x['username'], filtered_users))
+    for d in filtered_users:
+        d['created_by']=d.pop('username')
+    l=list(filter(lambda d: d['created_by'] in my_list, filtered_users))
+    return my_list,filtered_users """
+    
+def dict_flatten(in_dict, dict_out=None, parent_key=None, separator="_"):
+   if dict_out is None:
+      dict_out = {}
+
+   for k, v in in_dict.items():
+      k = f"{k}" if parent_key else k
+      if isinstance(v, dict):
+         dict_flatten(in_dict=v, dict_out=dict_out, parent_key=k)
+         continue
+
       dict_out[k] = v
 
    return dict_out
@@ -147,12 +173,17 @@ def get_distances(username,location,dist):
     filt_id = list(map(lambda x: x['created_by'], all_data_filt))  #returns the id rather than the usernames for those whose are electible
     return filt_id,all_data_filt
 
+
+""" def distance_calc_from_user(bid_username,owner_username):
+    distance=geodesic(ast.literal_eval(get_loc(bid_username)),ast.literal_eval(get_loc(owner_username))).km
+    return distance """
+
 def distance_calc(bidder_loc,owner_loc):
     distance=geodesic(ast.literal_eval(bidder_loc),ast.literal_eval(owner_loc)).km
     return distance
 
 
-def save_room(privacy, room_name, created_by,auction_type, highest_bid,highest_bidder,closing_time,sellersign,buyersign,templatetype,location):
+def save_room(privacy, room_name, created_by,auction_type, highest_bid,highest_bidder,closing_time,sellersign,buyersign,templatetype,location,is_broker,broker_id,represented_by):
     room_id = nego.insert_one(
         {'type':'auction','_id':ObjectId(),'privacy':privacy,
         'payload':{'name': {'val':[room_name]},
@@ -166,7 +197,8 @@ def save_room(privacy, room_name, created_by,auction_type, highest_bid,highest_b
                  'buyersign':{'val':[buyersign]},
                  'templatetype':{'val':[templatetype]},
                  'location':{'val':[location]},}}).inserted_id
-    add_room_member(room_id, room_name, created_by, created_by,location, is_room_admin=True)
+  
+    add_room_member(room_id, room_name, created_by, created_by,location,is_broker,broker_id,represented_by, is_room_admin=True)
     return room_id
 
 def save_param(room_id,created_by,room_name,reference_sector,reference_type, quantity, articleno):
@@ -191,16 +223,16 @@ def get_room(room_id):
     return nego.find_one({'_id': ObjectId(room_id)})
 
 
-def add_room_member(room_id, room_name, username, added_by, location, is_room_admin=False):
+def add_room_member(room_id, room_name, username, added_by,location, is_broker, broker_agreement,represented_by,is_room_admin=False):
     room_members_collection.insert_one(
         {'_id': {'room_id': ObjectId(room_id), 'username': username}, 'room_name': room_name, 'added_by': added_by,
-         'added_at': datetime.utcnow(),'location':location, 'is_room_admin': is_room_admin})
+         'added_at': datetime.utcnow(),'location':location, 'is_room_admin': is_room_admin,'is_broker':is_broker,'broker_agreement':broker_agreement,'represented_by':represented_by})
 
 
-def add_room_members(room_id, room_name, usernames, added_by):
+def add_room_members(room_id, room_name, username, added_by):
     room_members_collection.insert_many(
-        [{'_id': {'room_id': ObjectId(room_id), 'username': username}, 'room_name': room_name, 'added_by': added_by,
-          'added_at': datetime.utcnow(), 'location':'', 'is_room_admin': False} for username in usernames])
+        [{'_id': {'room_id': ObjectId(room_id), 'username': user}, 'room_name': room_name, 'added_by': added_by,
+          'added_at': datetime.utcnow(),'location':'', 'is_room_admin': False,'is_broker':'','broker_agreement':'','represented_by':''} for user in username])
 
 ### Get the highest bids in current auction for each active user
 def get_bidders(room_id):
@@ -408,6 +440,7 @@ def save_room2(room_name, created_by,seller,loc_id,highest_bidder,sellersign,buy
     # Fetching auctions fails if this is added, not sure if it is needed or not
     # but we'll keep it disabled.
     #add_room_member(room_id, room_name, created_by, created_by, is_room_admin=True)
+    
     save_bid('negotiation',room_id,bid,created_by,buyersign,distance)
     return room_id
 
@@ -464,7 +497,7 @@ def get_template(temp_type):
     return temp_id['template']
 
 # Get the signature of the user by its username
-def get_sign(uid):
+def get_sign_uid(uid):
     user_info=users_collection.find_one({'username':uid})
     return user_info['sign']
 
@@ -718,3 +751,73 @@ def sign_negotiation_contract(negotiation_id, contract_id):
     values["sellersign"] = negotiation["sellersign"]
     
     return create_contract2(template, values)
+
+
+#_______________________Broker implementation________________________________
+
+
+# Contract for the brokers
+#create_contract('broker','This broker contract $title establish the rights for the user $representant herein referded as representant to represent $represented herein refered to as represented user in: Auctions and negotiations for the following items $items from the datetime $starting_date to $end_date. The representant will be able to join, bid and negotiate during the specified time frame. Representant signature $representant_signature .Represented user signature $represented_signature')
+
+"""
+This stablishes the broker contract and returns the id of the newly created agreement
+"""
+
+def new_broker(representant,represented,end_date):
+    representant_sign=get_sign(representant)
+    represented_sign=get_sign(represented)
+    template=get_contract(ObjectId('62616ab2d0cb12e18f4c190a'))
+    values=dict()
+    values['title']=representant+'('+represented+')'
+    values['representant']=representant
+    values['represented']=represented
+    values["starting_date"]=datetime.utcnow()
+    values['end_date']=end_date
+    values['representant_signature']=representant_sign
+    values['represented_signature']=represented_sign
+    contract=create_contract2(template,values)['body']
+    contract_id=broker_collection.insert_one(
+        {
+            'titie':values['title'],
+            'representant':values['representant'],
+            'represented':values['represented'],
+            'starting_date':values["starting_date"],
+            'end_date':values["end_date"],
+            'contract_content':contract
+
+        }
+    ).inserted_id
+    return contract_id
+    
+"""
+Finds broker contracts represented by the user and hasn't ended
+"""    
+def broker_contracts(user):
+    d1,d2=dict(),dict()
+    representant=list(broker_collection.find({"representant":user,"end_date":{'$gte' : datetime.utcnow() }}))
+    represented=list(broker_collection.find({"represented":user,"end_date":{'$gte' : datetime.utcnow() }}))
+    d1['Represents in']=representant[0]
+    d2['Is represented in']=represented[0]
+    d3=d1|d2
+    return d3
+
+
+"""
+Get data of specific contract
+"""
+def represented_cont(broker_id):
+    contract=list(broker_collection.find_one({"_id":ObjectId(broker_id)}))
+    return contract
+
+def is_contract_valid(broker_id):
+    contract=list(broker_collection.find_one({"_id":ObjectId(broker_id),"end_date":{'$gte' : datetime.utcnow() }}))
+    return True if contract is not None else False
+
+"""
+Is someone in room X being represented by this user? only one person is able to be represented by auction to avoid collusion topics
+"""
+
+def detect_broker(room_id, user):
+    room_member=room_members_collection.find_one({'_id.room_id': room_id,'represented_by':user})
+    represented_user=room_member['_id.username'] if room_member else False
+    return represented_user
