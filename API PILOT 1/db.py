@@ -1,26 +1,15 @@
-from codecs import ignore_errors
-
 from datetime import datetime, date
-from operator import neg
-from re import template
-from tracemalloc import start
-from turtle import distance
-from webbrowser import get
-#from turtle import distance
 
 from bson import ObjectId
-from pymongo import MongoClient, DESCENDING
+from pymongo import MongoClient
 from werkzeug.security import generate_password_hash
 import uuid
 import hashlib
-#from app import neg
 from user import User
 from string import Template
-from geopy.geocoders import Nominatim
 import json
 from geopy.distance import geodesic
 import ast
-from collections import defaultdict
 import os
 
 
@@ -701,7 +690,6 @@ def list_contracts():
     """
     contracts = templates_collection.find({})
     return list(map(convert_contract, contracts))
-
 
 def create_contract2(template, values):
     s = Template(template["body"]).safe_substitute(values)

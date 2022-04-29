@@ -1,32 +1,28 @@
-from crypt import methods
 from datetime import datetime
-from dis import dis
-#from turtle import distance
 
 from bson.json_util import dumps
 from flask import Flask, render_template, request, redirect, url_for, jsonify
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from flask_cors import CORS
 from pymongo.errors import DuplicateKeyError
-from string import Template
-from geopy.distance import geodesic
-import ast
 import json
 import dateutil.parser
 import logging
 
 from db import (
     neg_info, save_param2,sign_contract,change_status, get_neg,owned_auctions,get_bidders,find_rooms,distance_calc,
-    ended,get_template,get_t,get_room_admin,save_param,add_room_member,add_room_members, save_room2,update_bid,
-    get_closing,get_hb,get_sign,get_hbidder, get_messages, get_room, get_room_members, get_rooms_for_user, get_user, is_room_admin,
+    ended,get_room_admin,save_param,add_room_member,add_room_members, save_room2,update_bid,
+    get_closing,get_hb,get_sign,get_hbidder, get_messages, get_room, get_room_members, get_user, is_room_admin,
     is_room_member, remove_room_members, save_bid, save_room, save_user, update_room, get_room_details, get_room_details_by_ids,
     get_all_rooms_by_id, get_rooms_by_username, get_negotiations_by_username, create_contract, get_contract, list_contracts,
-    get_negotiation, get_public_rooms, sign_auction_contract, sign_negotiation_contract, get_user_loc,add_loc,represented_cont,
+    get_negotiation, get_public_rooms, sign_negotiation_contract, get_user_loc,add_loc,represented_cont,
     detect_broker,broker_contracts,new_broker
 )
 from db import JSONEncoder
 
 app = Flask(__name__)
+
+from transport.broker_transport import *
 
 cors = CORS(app)
 app.secret_key = "sfdjkafnk"
@@ -738,41 +734,31 @@ def route_list_contracts():
     contracts = list_contracts()
     return JSONEncoder().encode(contracts), 200
 
-
-@app.route("/negotiate/<neg_id>/full", methods=["GET"])
-def get_negotiation_full(neg_id):
-    """
-    Gets the full information of a negotiation. This includes the negotation and
-    its details.
-    """
-    username = request.authorization.username
-    app.logger.info("%s requesting negotiation %s", username, neg_id)
-
 #_____________Broker_________________
 
 
-"""
-Will return broker contracts represented by the user if any,
-"""
-@app.route('/broker',methods=['GET'])
-def get_broker():
-    username = request.authorization.username
-    conts=broker_contracts(username) # returns {{'represents in':{...}},{'is represented in':{...}}}
-    return conts,200 if conts is not None else {'message':'No contracts available'},404 
+# """
+# Will return broker contracts represented by the user if any,
+# """
+# @app.route('/broker',methods=['GET'])
+# def get_broker():
+#     username = request.authorization.username
+#     conts=broker_contracts(username) # returns {{'represents in':{...}},{'is represented in':{...}}}
+#     return conts,200 if conts is not None else {'message':'No contracts available'},404 
 
 
 
-@app.route('/broker/new_broker',methods=["POST"])
-def add_new_broker():
-    username = request.authorization.username
-    representant=username
-    represented=request.form.get('represented_user')
-    end_date=dateutil.parser.isoparse(request.form.get('end_date'))
-    contract_id=new_broker(representant,represented,end_date)
-    return {
-    "message": "successfully created broker agreement",
-    "id": str(contract_id),
-    }, 200
+# @app.route('/broker/new_broker',methods=["POST"])
+# def add_new_broker():
+#     username = request.authorization.username
+#     representant=username
+#     represented=request.form.get('represented_user')
+#     end_date=dateutil.parser.isoparse(request.form.get('end_date'))
+#     contract_id=new_broker(representant,represented,end_date)
+#     return {
+#     "message": "successfully created broker agreement",
+#     "id": str(contract_id),
+#     }, 200
 
 
 @login_manager.user_loader
