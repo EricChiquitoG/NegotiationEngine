@@ -25,6 +25,18 @@ class NotAuthenticated(NEUnauthorized):
         self.code = 100
 
 
+class UserAlreadyExists(NEBadRequest):
+    def __init__(self):
+        self.message = "User already exists"
+        self.code = 101
+
+
+class UserNotFound(NENotFound):
+    def __init__(self, username):
+        self.message = "user {} not found".format(username)
+        self.code = 102
+
+
 # -----------------------------------------------------------------------------
 # Contracts
 # -----------------------------------------------------------------------------

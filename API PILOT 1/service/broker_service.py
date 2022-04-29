@@ -3,7 +3,7 @@ from lib.errors import BrokerAgreementNotAuthorized
 import repository.broker_repository as broker_repository
 
 from service.contract_service import get_contract, sign_contract
-from db import get_sign as get_signature
+from service.user_service import get_signature
 
 
 def get_agreement(agreement_id, username):

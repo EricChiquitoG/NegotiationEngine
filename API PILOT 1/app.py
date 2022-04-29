@@ -1,10 +1,8 @@
 from datetime import datetime
 
-from bson.json_util import dumps
-from flask import Flask, render_template, request, redirect, url_for, jsonify
+from flask import Flask, render_template, request, jsonify, make_response
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from flask_cors import CORS
-from pymongo.errors import DuplicateKeyError
 import json
 import dateutil.parser
 import logging
@@ -19,9 +17,12 @@ from db import (
     detect_broker,
 )
 from db import JSONEncoder
+from lib.errors import NEError
+from jsonschema import ValidationError
 
 app = Flask(__name__)
 
+from transport.user_transport import *
 from transport.broker_transport import *
 from transport.contract_transport import *
 
@@ -32,6 +33,20 @@ login_manager.login_view = 'login'
 login_manager.init_app(app)
 
 logging.basicConfig(level=logging.DEBUG)
+
+@app.errorhandler(NEError)
+def ne_errors(error):
+    return make_response(
+        jsonify({ 'message': error.message, 'code': error.code }),
+        error.status_code
+    )
+
+@app.errorhandler(400)
+def bad_request(error):
+    if isinstance(error.description, ValidationError):
+        original_error = error.description
+        return make_response(jsonify({'error': original_error.message}), 400)
+    return error
 
 def int_or_default(s, default):
     try:
@@ -60,29 +75,6 @@ def login():
         else:
             message = 'Failed to login!'
     return message,400
-
-
-# Signup function is not habilitated for the time being, users are to be created either
-# by function or directly into the database
-
-@app.route('/signup', methods=['POST'])
-def signup():
-    if current_user.is_authenticated:
-        return redirect(url_for('home'))
-
-    username = request.json.get('username')
-    email = request.json.get('email')
-    password = request.json.get('password')
-    sign=request.json.get('sign')
-    location=request.json.get('sign')
-    try:
-        save_user(username, email, password, sign, location)
-        return { 'message': "User created" }, 200
-    except DuplicateKeyError:
-        return { 'message': "User already exists!" }, 400
-
-##holi={"room_name":"Erics composite auction","members":"","highest_bid":"5000","auction_type":"Ascending","closing_time":"2021-07-06T10:34:20","reference_sector":"Composites","reference_type":"Electronic","quantity":"15","templatetype":"article","articleno":"23dd"}
-
 
 # A request to this function will log out the user from the server
 

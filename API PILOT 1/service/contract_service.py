@@ -3,7 +3,7 @@ from string import Template
 from lib.errors import ContractNotFound
 
 import repository.contract_repository as contract_repository
-from db import get_sign as get_signature
+from service.user_service import get_signature
 
 
 def get_contract(contract_id):
