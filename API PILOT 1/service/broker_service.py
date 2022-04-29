@@ -1,11 +1,9 @@
 from lib.errors import BrokerAgreementNotAuthorized
 
 import repository.broker_repository as broker_repository
-from db import get_sign as get_signature, get_contract, create_contract2
 
-# Temp
-from lib.mongo import templates_collection
-from bson import ObjectId
+from service.contract_service import get_contract, sign_contract
+from db import get_sign as get_signature
 
 
 def get_agreement(agreement_id, username):
@@ -60,6 +58,7 @@ def accept_agreement(agreement_id, username):
     if agreement["represented_signature"] != "" and username == agreement["represented"]:
         raise BrokerAgreementNotAuthorized
 
+    # Get remaining signature
     representant_signature = agreement["representant_signature"]
     if representant_signature == "":
         representant_signature = get_signature(agreement["representant"])
@@ -68,11 +67,9 @@ def accept_agreement(agreement_id, username):
     if represented_signature == "":
         represented_signature = get_signature(agreement["represented"])
 
+    # Sign contract
     template_id = agreement["template_id"]
-    template = templates_collection.find_one({"_id": ObjectId(template_id)})
-    # TODO: REMOVE
-    template["body"] = template["template"]
-
+    template = get_contract(template_id)
     values = {
         "title": agreement["title"],
         "representant": agreement["representant"],
@@ -82,7 +79,7 @@ def accept_agreement(agreement_id, username):
         "representant_signature": representant_signature,
         "represented_signature": represented_signature,
     }
-    contract = create_contract2(template, values)["body"]
+    contract = sign_contract(template, values)
 
     broker_repository.accept_agreement(
         agreement, contract, representant_signature, represented_signature

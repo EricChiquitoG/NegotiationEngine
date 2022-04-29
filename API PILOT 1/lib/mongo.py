@@ -20,3 +20,4 @@ broker_collection = negengine_db.get_collection("brokers")
 
 # Create required indexes
 user_collection.create_index("username", unique=True)
+templates_collection.create_index("title", unique=True)

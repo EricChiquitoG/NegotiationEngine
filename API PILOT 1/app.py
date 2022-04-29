@@ -14,15 +14,16 @@ from db import (
     ended,get_room_admin,save_param,add_room_member,add_room_members, save_room2,update_bid,
     get_closing,get_hb,get_sign,get_hbidder, get_messages, get_room, get_room_members, get_user, is_room_admin,
     is_room_member, remove_room_members, save_bid, save_room, save_user, update_room, get_room_details, get_room_details_by_ids,
-    get_all_rooms_by_id, get_rooms_by_username, get_negotiations_by_username, create_contract, get_contract, list_contracts,
+    get_all_rooms_by_id, get_rooms_by_username, get_negotiations_by_username,
     get_negotiation, get_public_rooms, sign_negotiation_contract, get_user_loc,add_loc,represented_cont,
-    detect_broker,broker_contracts,new_broker
+    detect_broker,
 )
 from db import JSONEncoder
 
 app = Flask(__name__)
 
 from transport.broker_transport import *
+from transport.contract_transport import *
 
 cors = CORS(app)
 app.secret_key = "sfdjkafnk"
@@ -659,106 +660,6 @@ def route_list_public_auctions():
         "rooms": rooms_with_details,
         "count": count,
     }), 200
-
-
-@app.route("/contracts/create", methods=["POST"])
-def route_create_contract():
-    """
-    Create a new contract.
-
-    This is expected to be used by site administrators only.
-
-    Expects:
-    ```json
-    {
-        "title": "contract title",
-        "body": "contract body, can use $identifier for templated data"
-    }
-    ```
-    """
-    body = {
-        "title": request.json.get("title"),
-        "body": request.json.get("body"),
-    }
-    for (key, value) in body.items():
-        if value is None:
-            return { "message": "{} must be present".format(key) }, 400
-    
-    app.logger.info("creating contract %s: %s", body["title"], body["body"])
-
-    id = create_contract(**body)
-    return {
-        "message": "successfully created contract",
-        "id": str(id),
-    }, 200
-
-
-@app.route("/contracts/<id>", methods=["GET"])
-def route_get_contract(id):
-    """
-    Returns the complete information about a single contract.
-
-    Example response:
-    ```json
-    {
-        "_id": "",
-        "title": "",
-        "body": ""
-    }
-    ```
-    """
-    app.logger.info("get contract %s", id)
-    contract = get_contract(id)
-    if contract is None:
-        return { "message": "contract not found" }, 404
-    
-    return JSONEncoder().encode(contract), 200
-
-
-@app.route("/contracts/list", methods=["GET"])
-def route_list_contracts():
-    """
-    Returns a list of all contracts, containing only the id and the title.
-
-    Example response:
-    ```json
-    [
-        {
-            "_id": "",
-            "title": ""
-        }
-    ]
-    ```
-    """
-    app.logger.info("list all contracts")
-    contracts = list_contracts()
-    return JSONEncoder().encode(contracts), 200
-
-#_____________Broker_________________
-
-
-# """
-# Will return broker contracts represented by the user if any,
-# """
-# @app.route('/broker',methods=['GET'])
-# def get_broker():
-#     username = request.authorization.username
-#     conts=broker_contracts(username) # returns {{'represents in':{...}},{'is represented in':{...}}}
-#     return conts,200 if conts is not None else {'message':'No contracts available'},404 
-
-
-
-# @app.route('/broker/new_broker',methods=["POST"])
-# def add_new_broker():
-#     username = request.authorization.username
-#     representant=username
-#     represented=request.form.get('represented_user')
-#     end_date=dateutil.parser.isoparse(request.form.get('end_date'))
-#     contract_id=new_broker(representant,represented,end_date)
-#     return {
-#     "message": "successfully created broker agreement",
-#     "id": str(contract_id),
-#     }, 200
 
 
 @login_manager.user_loader
