@@ -65,8 +65,10 @@ def add_loc(user,room_id, location, is_broker,broker_id):
 
 
 def get_user_loc(user,room_id):
-    member_data=room_members_collection.find_one({'_id.room_id':room_id,'_id.username':user})
-    return member_data['location']
+    member_data=room_members_collection.find_one({'_id.room_id':ObjectId(room_id),'_id.username':user})
+    if member_data:
+        return member_data['location']
+    else: return None
 
 def get_sign(username):
     user_data = users_collection.find_one({'username': username})
@@ -770,7 +772,7 @@ def new_broker(representant,represented,end_date):
     contract=create_contract2(template,values)['body']
     contract_id=broker_collection.insert_one(
         {
-            'titie':values['title'],
+            'title':values['title'],
             'representant':values['representant'],
             'represented':values['represented'],
             'starting_date':values["starting_date"],
@@ -788,9 +790,10 @@ def broker_contracts(user):
     d1,d2=dict(),dict()
     representant=list(broker_collection.find({"representant":user,"end_date":{'$gte' : datetime.utcnow() }}))
     represented=list(broker_collection.find({"represented":user,"end_date":{'$gte' : datetime.utcnow() }}))
-    d1['Represents in']=representant[0]
-    d2['Is represented in']=represented[0]
-    d3=d1|d2
+    d1['Represents in']=representant[0] if representant else None
+    d2['Is represented in']=represented[0]if represented else None
+    d3=d1|d2 if d1['Represents in'] else None
+    print(d3)
     return d3
 
 
@@ -798,11 +801,12 @@ def broker_contracts(user):
 Get data of specific contract
 """
 def represented_cont(broker_id):
-    contract=list(broker_collection.find_one({"_id":ObjectId(broker_id)}))
+    contract=broker_collection.find_one({"_id":ObjectId(broker_id)})
     return contract
 
 def is_contract_valid(broker_id):
-    contract=list(broker_collection.find_one({"_id":ObjectId(broker_id),"end_date":{'$gte' : datetime.utcnow() }}))
+    contract=broker_collection.find_one({"_id":ObjectId(broker_id),"end_date":{'$gte' : datetime.utcnow() }})
+    print(contract)
     return True if contract is not None else False
 
 """
@@ -810,6 +814,6 @@ Is someone in room X being represented by this user? only one person is able to 
 """
 
 def detect_broker(room_id, user):
-    room_member=room_members_collection.find_one({'_id.room_id': room_id,'represented_by':user})
-    represented_user=room_member['_id.username'] if room_member else False
+    room_member=room_members_collection.find_one({'_id.room_id': ObjectId(room_id),'represented_by':user})
+    represented_user=room_member['_id']['username'] if room_member else False
     return represented_user

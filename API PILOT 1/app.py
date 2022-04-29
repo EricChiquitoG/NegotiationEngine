@@ -1,4 +1,3 @@
-from crypt import methods
 from datetime import datetime
 from dis import dis
 #from turtle import distance
@@ -22,7 +21,7 @@ from db import (
     is_room_member, remove_room_members, save_bid, save_room, save_user, update_room, get_room_details, get_room_details_by_ids,
     get_all_rooms_by_id, get_rooms_by_username, get_negotiations_by_username, create_contract, get_contract, list_contracts,
     get_negotiation, get_public_rooms, sign_auction_contract, sign_negotiation_contract, get_user_loc,add_loc,represented_cont,
-    detect_broker,broker_contracts,new_broker
+    detect_broker,broker_contracts,new_broker,is_contract_valid
 )
 from db import JSONEncoder
 
@@ -119,7 +118,7 @@ def create_room():
         location=request.form.get('auction_location')
         is_broker=request.form.get('is_broker')
         broker_id=request.form.get('broker_id')
-        if is_broker:
+        if is_broker and is_contract_valid(broker_id):
             broker_contract=represented_cont(broker_id)
             represented_by=user
             user=broker_contract['represented']
@@ -195,14 +194,15 @@ def join_room(room_id):
 
     existing_room_members = [member['_id']['username'] for member in get_room_members(room_id)]
     if request.method == 'GET':
-        new_members = user
-        if is_broker==True:
+        
+        if is_broker==True or is_broker=='True':
             ## Get name of representant and change user to that one
             broker_contract=represented_cont(broker_id)
             represented_by=user
             user=broker_contract['represented']
+            new_members = user
             if new_members in list(set(existing_room_members)):
-                if get_user_loc(user,room_id)=='':
+                if get_user_loc(user,room_id)==None:
                     if location:
                         add_loc(user,room_id,location,is_broker,broker_id)
                         return{"message":"Added location for user"},200
@@ -210,8 +210,9 @@ def join_room(room_id):
                 return {"message":"You are already in a room"},200
             add_room_member(room_id, room_name, new_members, user, location,is_broker,broker_id,represented_by)
         else:
+            new_members = user
             if new_members in list(set(existing_room_members)):
-                if get_user_loc(user,room_id)=='':
+                if get_user_loc(user,room_id)==None:
                     if location:
                         add_loc(user,room_id,location,False,'')
                         return{"message":"Added location for user"},200
@@ -233,9 +234,11 @@ def bid(room_id):
     room = get_room(room_id)
     rn=room['payload']['name']['val'][0]
     closing_time=get_closing(room_id)
-    broker_represented=detect_broker(room_id,user) #Returns name of represented user if true, false otherwise
+    user=request.authorization.username
 
+    broker_represented=detect_broker(room_id,user) #Returns name of represented user if true, false otherwise
     user=broker_represented if broker_represented else request.authorization.username
+
 
     if room and is_room_member(room_id, user):
         
@@ -751,7 +754,11 @@ Will return broker contracts represented by the user if any,
 def get_broker():
     username = request.authorization.username
     conts=broker_contracts(username) # returns {{'represents in':{...}},{'is represented in':{...}}}
-    return conts,200 if conts is not None else {'message':'No contracts available'},404 
+    print(conts)
+    if conts is not None:
+         return JSONEncoder().encode(conts),200
+    else:
+        return {'message':'No contracts available'},404 
 
 
 
