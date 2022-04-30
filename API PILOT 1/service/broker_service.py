@@ -1,4 +1,4 @@
-from lib.errors import BrokerAgreementNotAuthorized
+from lib.errors import BrokerAgreementNotAuthorized, BrokerAgreementExpired
 
 import repository.broker_repository as broker_repository
 
@@ -98,3 +98,21 @@ def reject_agreement(agreement_id, username):
         raise BrokerAgreementNotAuthorized
 
     broker_repository.reject_agreement(agreement)
+
+
+def get_valid_agreement(agreement_id, username):
+    agreement = get_agreement(agreement_id, username)
+    # if agreement["end_date"] >= datetime.utcnow():
+    #     raise BrokerAgreementExpired
+    return agreement
+
+
+def has_valid_contract(represented, represented_by):
+    pass
+
+
+def check_broker_agreement(broker_agreement_id, username):
+    if broker_agreement_id == "":
+        return (username, "")
+    agreement = get_valid_agreement(broker_agreement_id, username)
+    return (agreement["represented"], username)

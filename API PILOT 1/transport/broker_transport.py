@@ -1,6 +1,7 @@
 from __main__ import app
 from flask import g, request
 from flask_expects_json import expects_json
+from dateutil import parser
 
 from lib.util import JSONEncoder, int_or_default, get_username
 from service.broker_service import (
@@ -63,10 +64,13 @@ def route_broken_create_agreement():
     agreement. And the represented has to accept the agreement.
     """
     username = get_username(request)
-    if username not in (g.data["represented"], g.data["representant"]):
+    data = g.data
+
+    if username not in (data["represented"], data["representant"]):
         return {"message": "user must be either representant or represented"}, 400
 
-    agreement_id = create_agreement(username=username, **g.data)
+    data["end_date"] = parser.isoparse(data["end_date"])
+    agreement_id = create_agreement(username=username, **data)
 
     response = {
         "message": "Successfully created broker agreement",

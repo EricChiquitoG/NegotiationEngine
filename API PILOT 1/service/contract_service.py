@@ -13,6 +13,13 @@ def get_contract(contract_id):
     return contract
 
 
+def get_contract_by_title(title):
+    contract = contract_repository.get_contract_by_title(title)
+    if contract is None:
+        raise ContractNotFound
+    return contract
+
+
 def get_contracts(user_for):
     return contract_repository.list_contracts(user_for)
 

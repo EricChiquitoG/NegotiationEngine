@@ -2,9 +2,6 @@ from datetime import datetime, date
 
 from bson import ObjectId
 from pymongo import MongoClient
-from werkzeug.security import generate_password_hash
-import uuid
-import hashlib
 from user import User
 from string import Template
 import json
@@ -40,13 +37,6 @@ def add_template():
     temp="Hereby I $buyer, declare the purchase of $quantity units of $item for the ammount of $ammount SEK on $date from $owner. \nBuyer signature $buyersign \nSeller signature $sellersign"
     templates_collection.insert_one({'temp_type':temp_type,'template':temp})
 
-
-def save_user(username, email, password):
-    password_hash = generate_password_hash(password)
-    salt = uuid.uuid4().hex
-    hashsign = hashlib.sha256(salt.encode() + password.encode()).hexdigest() + ':' + salt
-    
-    users_collection.insert_one({'type':'user','_id': ObjectId(),'username':username, 'email': email, 'password': password_hash,'sign':hashsign})
 
 def add_loc(user,room_id, location, is_broker,broker_id):
     room_members_collection.update_one({'_id.room_id':room_id,'_id.username':user},{'$set':{'location':location,'is_broker':is_broker,'broker_id':broker_id}})
@@ -172,35 +162,35 @@ def distance_calc(bidder_loc,owner_loc):
     return distance
 
 
-def save_room(privacy, room_name, created_by,auction_type, highest_bid,highest_bidder,closing_time,sellersign,buyersign,templatetype,location,is_broker,broker_id,represented_by):
-    room_id = nego.insert_one(
-        {'type':'auction','_id':ObjectId(),'privacy':privacy,
-        'payload':{'name': {'val':[room_name]},
-                 'created_by': {'val':[created_by]}, 
-                 'created_at': {'val':[datetime.utcnow()]},
-                 'auction_type':{'val':[auction_type]}, 
-                 'highest_bid':{'val':[highest_bid]},
-                 'highest_bidder':{'val':[highest_bidder]},
-                 'closing_time':{'val':[closing_time]},
-                 'sellersign':{'val':[sellersign]},
-                 'buyersign':{'val':[buyersign]},
-                 'templatetype':{'val':[templatetype]},
-                 'location':{'val':[location]},}}).inserted_id
+# def save_room(privacy, room_name, created_by,auction_type, highest_bid,highest_bidder,closing_time,sellersign,buyersign,templatetype,location,is_broker,broker_id,represented_by):
+#     room_id = nego.insert_one(
+#         {'type':'auction','_id':ObjectId(),'privacy':privacy,
+#         'payload':{'name': {'val':[room_name]},
+#                  'created_by': {'val':[created_by]}, 
+#                  'created_at': {'val':[datetime.utcnow()]},
+#                  'auction_type':{'val':[auction_type]}, 
+#                  'highest_bid':{'val':[highest_bid]},
+#                  'highest_bidder':{'val':[highest_bidder]},
+#                  'closing_time':{'val':[closing_time]},
+#                  'sellersign':{'val':[sellersign]},
+#                  'buyersign':{'val':[buyersign]},
+#                  'templatetype':{'val':[templatetype]},
+#                  'location':{'val':[location]},}}).inserted_id
   
-    add_room_member(room_id, room_name, created_by, created_by,location,is_broker,broker_id,represented_by, is_room_admin=True)
-    return room_id
+#     add_room_member(room_id, room_name, created_by, created_by,location,is_broker,broker_id,represented_by, is_room_admin=True)
+#     return room_id
 
-def save_param(room_id,created_by,room_name,reference_sector,reference_type, quantity, articleno):
-    room=nego.find_one({'_id': ObjectId(room_id)})
-    nego_details.insert_one(
-        {'type':'details','_id': ObjectId(room_id),
-        'payload':{'room_name':{'val':[room_name]},
-                'created_by':{'val':[created_by]},
-                'closing_time':{'val':[room['payload']['closing_time']['val'][0]]}, 
-                'reference_sector':{'val':[reference_sector]},
-                'reference_type':{'val':[reference_type]},
-                'quantity':{'val':[quantity]},
-                'articleno':{'val':[articleno]}}})
+# def save_param(room_id,created_by,room_name,reference_sector,reference_type, quantity, articleno):
+#     room=nego.find_one({'_id': ObjectId(room_id)})
+#     nego_details.insert_one(
+#         {'type':'details','_id': ObjectId(room_id),
+#         'payload':{'room_name':{'val':[room_name]},
+#                 'created_by':{'val':[created_by]},
+#                 'closing_time':{'val':[room['payload']['closing_time']['val'][0]]}, 
+#                 'reference_sector':{'val':[reference_sector]},
+#                 'reference_type':{'val':[reference_type]},
+#                 'quantity':{'val':[quantity]},
+#                 'articleno':{'val':[articleno]}}})
 
 # Currently is not being used
 def update_room(room_id, room_name):
@@ -602,67 +592,6 @@ def get_negotiations_by_username(username, count, skip):
     return [flatten_negotiation(n, d) for (n, d) in zip(negotiations, details)]
 
 
-def get_rooms_by_username(username):
-    """
-    Returns all rooms the user is apart of
-    """
-    room_list = list(room_members_collection.find({ '_id.username': username }))
-    room_ids = [room['_id']['room_id'] for room in room_list]
-    return room_ids
-
-
-def get_public_rooms(skip, count):
-    rooms = list(nego.find({ "privacy": "Public"}).sort("_id", 1).skip(skip).limit(count))
-    total_rooms = nego.count_documents({ "privacy": "Public" })
-    return (rooms, total_rooms)
-
-
-def get_room_details(room_id):
-    return nego_details.find_one({ '_id': ObjectId(room_id) })
-
-
-def get_all_rooms_by_id(room_ids):
-    """
-    Retrives rooms by room ids.
-    """
-    return nego.find({
-        '_id': { '$in': room_ids }
-    })
-
-
-def get_room_details_by_ids(room_ids):
-    """
-    Retrieves room details from a list of room ids.
-    """
-    return nego_details.find({ '_id': { '$in': room_ids } })
-
-
-def create_contract(title, body):
-    """
-    Creates a new contract
-
-    Keys supported in the contract, used with ($key) are
-    - title (title of the auction/negotiation)
-    - owner (creator)
-    - buyer (the other party)
-    - quantity (amount to buy/sell)
-    - item (the article number)
-    - amount (the final price)
-    - reference_sector
-    - reference_type
-    - buyersign (buyer's signature)
-    - sellersign (seller's signature)
-    - date (date when contract should be signed)
-    """
-    id = templates_collection.insert_one(
-        {
-            'temp_type': title,
-            'template': body
-        }
-    ).inserted_id
-    return id
-
-
 def convert_contract(contract):
     """
     Map a contract from the DB format to what we want to send back
@@ -684,13 +613,6 @@ def get_contract(id):
     return None
 
 
-def list_contracts():
-    """
-    Returns a list of all contracts.
-    """
-    contracts = templates_collection.find({})
-    return list(map(convert_contract, contracts))
-
 def create_contract2(template, values):
     s = Template(template["body"]).safe_substitute(values)
     return {
@@ -699,6 +621,21 @@ def create_contract2(template, values):
         "body": s,
     }
 
+def sign_auction_contract2(auction, template):
+    values = dict()
+    values["title"] = auction["payload"]["name"]["val"][0]
+    values["owner"] = auction["payload"]["created_by"]["val"][0]
+    values["buyer"] = auction["payload"]["highest_bidder"]["val"][0]
+    values["date"] = auction["payload"]["closing_time"]["val"][0]
+    values["item"] = auction["payload"]["articleno"]["val"][0]
+    values["quantity"] = auction["payload"]["quantity"]["val"][0]
+    values["amount"] = auction["payload"]["highest_bid"]["val"][0]
+    values["reference_sector"] = auction["payload"]["reference_sector"]["val"][0]
+    values["reference_type"] = auction["payload"]["reference_type"]["val"][0]
+    values["buyersign"] = auction["payload"]["buyersign"]["val"][0]
+    values["sellersign"] = auction["payload"]["sellersign"]["val"][0]
+
+    return create_contract2(template, values)
 
 def sign_auction_contract(auction_id, contract_id):
     template = get_contract(contract_id)
