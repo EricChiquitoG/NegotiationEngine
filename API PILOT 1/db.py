@@ -2,7 +2,6 @@ from datetime import datetime, date
 
 from bson import ObjectId
 from pymongo import MongoClient
-from user import User
 from string import Template
 import json
 from geopy.distance import geodesic
@@ -436,11 +435,6 @@ def save_param2(room_id,created_by,room_name,reference_sector,reference_type, qu
                 'quantity':{'val':[quantity]},
                 'articleno':{'val':[articleno]}}})
 
-
-# Gets the user data, used for the login system
-def get_user(username):
-    user_data = users_collection.find_one({'username': username})
-    return User(user_data['username'], user_data['email'], user_data['password'],user_data['sign']) if user_data else None
 
 # changes the status of the access permission depending on what is sent and who sends it.
 def change_status(req_id, flag,user,offer):

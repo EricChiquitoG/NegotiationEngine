@@ -6,7 +6,7 @@ from db import (
     neg_info, save_param2,sign_contract,change_status, get_neg,find_rooms,distance_calc,
     add_room_members, save_room2,
     get_sign, get_room, get_room_members, is_room_admin,
-     remove_room_members, save_bid, update_room,
+    remove_room_members, save_bid, update_room,
     get_negotiations_by_username, get_negotiation, sign_negotiation_contract,
     represented_cont, detect_broker,
 )

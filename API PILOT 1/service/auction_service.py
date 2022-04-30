@@ -10,6 +10,7 @@ from lib.errors import (
     AuctionBiddingEnded,
     AuctionCannotBidAsAdmin,
     AuctionHasWinner,
+    NegotiationViewNotAuthorized,
     AuctionNotEnded,
     AuctionUserNotMember,
     AuctionNotAdmin,
@@ -44,13 +45,15 @@ def get_auction(auction_id, username):
     if represented_by != "" and not has_valid_contract(represented, represented_by):
         represented_by = ""
 
+    if get_member_in_negotiation(auction_id, username) is None:
+        raise NegotiationViewNotAuthorized
+
     auction = get_negotiation(
         auction_id, include_details=True, include_bids=True, include_members=True
     )
 
     if auction["payload"]["highest_bidder"]["val"][0] != "":
         # Auction has ended
-        print(auction["payload"])
         template_title = auction["payload"]["templatetype"]["val"][0]
         template = get_contract_by_title(template_title)
         auction["contract"] = sign_auction_contract2(auction, template)["body"]
