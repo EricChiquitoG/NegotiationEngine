@@ -9,6 +9,9 @@ from service.broker_service import (
     get_agreements,
     get_pending_agreements,
     get_active_agreements,
+    get_active_agreements_between,
+    get_active_or_pending_agreements_between,
+    get_represented_user_agreements,
     create_agreement,
     accept_agreement,
     reject_agreement,
@@ -21,6 +24,27 @@ def route_broker_get_agreement(agreement_id):
     agreement = get_agreement(agreement_id, username)
 
     return JSONEncoder().encode(agreement), 200
+
+
+@app.route("/broker/representing", methods=["GET"])
+def route_broker_list_representing():
+    username = get_username(request)
+
+    agreements = get_represented_user_agreements(username)
+    return JSONEncoder().encode(agreements), 200
+
+
+@app.route("/broker/between", methods=["GET"])
+def route_broker_list_agreements_between():
+    username = get_username(request)
+    other = request.args.get("other")
+
+    if request.args.get("active"):
+        agreements = get_active_agreements_between(username, other)
+    else:
+        agreements = get_active_or_pending_agreements_between(username, other)
+
+    return JSONEncoder().encode(agreements), 200
 
 
 @app.route("/broker/list", methods=["GET"])

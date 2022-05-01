@@ -9,7 +9,8 @@ def get_negotiation(
     if negotiation is None:
         raise NegotiationNotFound
 
-    return fill_details(negotiation, include_details, include_bids, include_members)
+    negotiation = fill_details(negotiation, include_details, include_bids, include_members)
+    return negotiation
 
 
 def get_negotiations(
@@ -18,12 +19,58 @@ def get_negotiations(
     include_details=False,
     include_bids=False,
     include_members=True,
+    sort_by="_id",
+    filters={},
     skip=0,
     limit=20,
 ):
     all_negotiation_ids = negotiation_repository.get_negotiation_membership_ids(username)
     (negotiations, total) = negotiation_repository.get_negotiations(
-        all_negotiation_ids, negotiation_type, skip, limit
+        all_negotiation_ids, negotiation_type, sort_by, filters, skip, limit
+    )
+
+    if include_details or include_bids or include_members:
+        negotiations = [
+            fill_details(n, include_details, include_bids, include_members) for n in negotiations
+        ]
+
+    return (negotiations, total)
+
+
+def get_negotiations_representing(
+    username,
+    negotiation_type,
+    include_details=False,
+    include_bids=False,
+    include_members=True,
+    sort_by="_id",
+    filters={},
+    skip=0,
+    limit=20,
+):
+    all_negotiation_ids = negotiation_repository.get_negotiation_representations_ids(username)
+    (negotiations, total) = negotiation_repository.get_negotiations(
+        all_negotiation_ids, negotiation_type, sort_by, filters, skip, limit
+    )
+
+    if include_details or include_bids or include_members:
+        negotiations = [
+            fill_details(n, include_details, include_bids, include_members) for n in negotiations
+        ]
+
+    return (negotiations, total)
+
+
+def get_public_negotiations(
+    negotiation_type,
+    include_details=False,
+    include_bids=False,
+    include_members=True,
+    skip=0,
+    limit=20,
+):
+    (negotiations, total) = negotiation_repository.get_public_negotiations(
+        negotiation_type, skip, limit
     )
 
     if include_details or include_bids or include_members:

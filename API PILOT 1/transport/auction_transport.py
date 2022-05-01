@@ -10,6 +10,8 @@ from service.auction_service import (
     end_auction,
     get_auction,
     get_auctions,
+    get_auction_representations,
+    get_auctions_ended,
     get_public_auctions,
     join_auction,
     place_bid,
@@ -48,7 +50,32 @@ def route_list_auctions():
     limit = int_or_default(request.args.get("limit"), 20)
     app.logger.info("%s requesting auctions", username)
 
-    (auctions, total) = get_auctions(username, broker_id, skip, limit)
+    if request.args.get("representations"):
+        (auctions, total) = get_auction_representations(username, skip, limit)
+    else:
+        (auctions, total) = get_auctions(username, broker_id, skip, limit)
+
+    response = {
+        "auctions": [convert_auction(a) for a in auctions],
+        "total": total,
+    }
+    return JSONEncoder().encode(response), 200
+
+
+@app.route("/rooms/history", methods=["GET"])
+def route_list_auction_history():
+    """
+    Returns historical auctions the user has been part of.
+    """
+    username = request.authorization.username
+    broker_id = request.args.get("broker_id")
+    broker_id = "" if broker_id is None else broker_id
+
+    skip = int_or_default(request.args.get("skip"), 0)
+    limit = int_or_default(request.args.get("limit"), 20)
+    app.logger.info("%s requesting auctions", username)
+
+    (auctions, total) = get_auctions_ended(username, broker_id, skip, limit)
 
     response = {
         "auctions": [convert_auction(a) for a in auctions],
@@ -62,12 +89,10 @@ def route_list_public_auctions():
     """
     Returns list of public auctions
     """
-    username = request.authorization.username
     skip = int_or_default(request.args.get("skip"), 0)
     limit = int_or_default(request.args.get("limit"), 20)
-    app.logger.info("%s requesting auctions", username)
 
-    (auctions, total) = get_public_auctions(username, skip, limit)
+    (auctions, total) = get_public_auctions(skip, limit)
 
     response = {
         "auctions": [convert_auction(a) for a in auctions],
@@ -88,6 +113,7 @@ create_auction_schema = {
         "quantity",
         "offer_id",
         "templatetype",
+        "location",
         "members",
         "broker_id",
     ],

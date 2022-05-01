@@ -22,6 +22,7 @@ def convert_auction(d):
             if "represented_by" in member:
                 mem["represented_by"] = member["represented_by"]
             mem["is_room_admin"] = member["is_room_admin"]
+            mem["offer_id"] = member["offer_id"]
             ret["members"].append(mem)
 
     if "bids" in d:

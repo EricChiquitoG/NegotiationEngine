@@ -17,10 +17,16 @@ from lib.errors import (
 )
 from lib.util import get_distance
 
-from service.negotiation_service import detect_broker, get_negotiation, get_negotiations
+from service.negotiation_service import (
+    detect_broker,
+    get_negotiation,
+    get_negotiations,
+    get_negotiations_representing,
+    get_public_negotiations,
+)
 from service.broker_service import get_valid_agreement, has_valid_contract, check_broker_agreement
 from service.user_service import get_signature
-from service.contract_service import get_contract_by_title
+from service.contract_service import get_contract
 
 from repository.negotiation_repository import (
     save_negotiation,
@@ -55,7 +61,7 @@ def get_auction(auction_id, username):
     if auction["payload"]["highest_bidder"]["val"][0] != "":
         # Auction has ended
         template_title = auction["payload"]["templatetype"]["val"][0]
-        template = get_contract_by_title(template_title)
+        template = get_contract(template_title)
         auction["contract"] = sign_auction_contract2(auction, template)["body"]
 
     return auction
@@ -66,13 +72,51 @@ def get_auctions(username, broker_id, skip, limit):
         agreement = get_valid_agreement(broker_id)
         username = agreement["represented"]
 
-    return get_negotiations(username, "auction", include_details=True, skip=skip, limit=limit)
-
-
-def get_public_auctions(username, skip, limit):
+    sort_by = "payload.closing_time"
+    extra_filters = {"status": "active"}
     return get_negotiations(
-        username, "auctions", "public", include_details=True, skip=skip, limit=limit
+        username,
+        "auction",
+        include_details=True,
+        sort_by=sort_by,
+        filters=extra_filters,
+        skip=skip,
+        limit=limit,
     )
+
+
+def get_auction_representations(username, skip, limit):
+    sort_by = "payload.closing_time"
+    extra_filters = {"status": "active"}
+    return get_negotiations_representing(
+        username,
+        "auction",
+        include_details=True,
+        sort_by=sort_by,
+        filters=extra_filters,
+        skip=skip,
+        limit=limit,
+    )
+
+
+def get_auctions_ended(username, broker_id, skip, limit):
+    if broker_id != "":
+        agreement = get_valid_agreement(broker_id)
+        username = agreement["represented"]
+
+    extra_filters = {"status": "closed"}
+    return get_negotiations(
+        username,
+        "auction",
+        include_details=True,
+        filters=extra_filters,
+        skip=skip,
+        limit=limit,
+    )
+
+
+def get_public_auctions(skip, limit):
+    return get_public_negotiations("auction", include_details=True, skip=skip, limit=limit)
 
 
 def create_auction(username, data):
@@ -86,7 +130,7 @@ def create_auction(username, data):
 
     auction_id = save_negotiation(
         "auction",
-        data["room_name"],
+        data["privacy"],
         {
             "name": data["room_name"],
             "created_by": username,
@@ -122,17 +166,19 @@ def create_auction(username, data):
         username=username,
         added_by=username,
         location=data["location"],
+        offer_id=data["offer_id"],
         broker_agreement=data["broker_id"],
         represented_by=represented_by,
         is_admin=True,
     )
 
-    save_members(
-        negotiation_id=auction_id,
-        negotiation_name=data["room_name"],
-        added_by=username,
-        members=data["members"],
-    )
+    if len(data["members"]) > 0:
+        save_members(
+            negotiation_id=auction_id,
+            negotiation_name=data["room_name"],
+            added_by=username,
+            members=data["members"],
+        )
 
     return auction_id
 
@@ -150,6 +196,7 @@ def join_auction(auction_id, username, location, broker_agreement):
             room_name=negotiation["payload"]["name"]["val"][0],
             added_by=username,
             location=location,
+            offer_id="",
             broker_agreement=broker_agreement,
             represented_by=represented_by,
             is_room_admin=False,

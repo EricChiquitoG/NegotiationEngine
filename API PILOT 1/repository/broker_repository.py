@@ -31,8 +31,7 @@ def get_active_agreements(username, skip, limit):
             {"represented": username},
         ],
         "end_date": {"$gte": datetime.utcnow()},
-        "representant_signature": {"$ne": ""},
-        "represented_signature": {"$ne": ""},
+        "status": "accepted",
     }
     agreements = broker_collection.find(filter_by).sort("_id", 1).skip(skip).limit(limit)
     total = broker_collection.count_documents(filter_by)
@@ -41,14 +40,88 @@ def get_active_agreements(username, skip, limit):
 
 def get_pending_agreements(username, skip, limit):
     filter_by = {
+        "status": "pending",
         "$or": [
-            {"representant": username, "represented_signature": ""},
-            {"represented": username, "representant_signature": ""},
-        ]
+            {"representant": username},
+            {"represented": username},
+        ],
     }
     agreements = broker_collection.find(filter_by).sort("_id", 1).skip(skip).limit(limit)
     total = broker_collection.count_documents(filter_by)
     return (list(agreements), total)
+
+
+def get_active_or_pending_agreements_between(username, other):
+    filter_by = {
+        "$or": [
+            {"status": "accepted", "end_date": {"$gte": datetime.utcnow()}},
+            {"status": "pending"},
+        ],
+        "$or": [
+            {
+                "representant": username,
+                "represented": other,
+            },
+            {
+                "represented": other,
+                "represented": username,
+            },
+        ],
+    }
+    agreements = broker_collection.find(filter_by).sort("_id", 1)
+    return list(agreements)
+
+
+def get_active_agreements_between(username, other):
+    filter_by = {
+        "$or": [
+            {"representant": username, "represented": other},
+            {"representant": other, "represented": username},
+        ],
+        "end_date": {"$gte": datetime.utcnow()},
+        "status": "accepted",
+    }
+    agreements = broker_collection.find(filter_by).sort("_id", 1)
+    return list(agreements)
+
+
+def get_last_agreement_for_each_represented(username):
+    agreements = broker_collection.aggregate(
+        [
+            {
+                "$match": {
+                    "representant": username,
+                    "status": "accepted",
+                    "end_date": {"$gte": datetime.utcnow()},
+                }
+            },
+            {
+                "$group": {
+                    "_id": "$represented",
+                    "doc": {
+                        "$max": {
+                            "end_date": "$end_date",
+                            "representant": "$representant",
+                            "represented": "$represented",
+                            "status": "$status",
+                            "_id": "$_id",
+                        }
+                    },
+                }
+            },
+        ]
+    )
+
+    def flatten_agreements(d):
+        return {
+            "_id": d["doc"]["_id"],
+            "representant": d["doc"]["representant"],
+            "represented": d["doc"]["represented"],
+            "end_date": d["doc"]["end_date"],
+            "status": d["doc"]["status"],
+        }
+
+    return [flatten_agreements(agreement) for agreement in list(agreements)]
 
 
 def create_agreement(

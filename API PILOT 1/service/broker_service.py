@@ -26,6 +26,18 @@ def get_pending_agreements(username, skip, limit):
     return broker_repository.get_pending_agreements(username, skip, limit)
 
 
+def get_active_agreements_between(username, other):
+    return broker_repository.get_active_agreements_between(username, other)
+
+
+def get_active_or_pending_agreements_between(username, other):
+    return broker_repository.get_active_or_pending_agreements_between(username, other)
+
+
+def get_represented_user_agreements(username):
+    return broker_repository.get_last_agreement_for_each_represented(username)
+
+
 def create_agreement(username, representant, represented, end_date, template_id):
     title = "{} ({})".format(representant, represented)
     representant_signature = ""

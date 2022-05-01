@@ -18,24 +18,27 @@ def get_negotiation(negotiation_id):
     return negotiation_collection.find_one({"_id": negotiation_id})
 
 
-def get_negotiations(negotiation_ids, negotiation_type, skip, limit):
+def get_negotiations(
+    negotiation_ids, negotiation_type, sort_by="_id", filters={}, skip=0, limit=20
+):
     filter_by = {
         "_id": {"$in": negotiation_ids},
         "type": negotiation_type,
+        **filters,
     }
-    negotiations = negotiation_collection.find(filter_by).sort("_id", 1).skip(skip).limit(limit)
+    negotiations = negotiation_collection.find(filter_by).sort(sort_by, 1).skip(skip).limit(limit)
     total = negotiation_collection.count_documents(filter_by)
     return (list(negotiations), total)
 
 
-def get_public_negotiations(negotiation_ids, negotiation_type, privacy, skip, limit):
+def get_public_negotiations(negotiation_type, skip, limit):
     filter_by = {
-        "_id": {"$in": negotiation_ids},
         "type": negotiation_type,
-        "privacy": privacy,
+        "privacy": "public",
     }
     negotiations = negotiation_collection.find(filter_by).sort("_id", 1).skip(skip).limit(limit)
     total = negotiation_collection.count_documents(filter_by)
+    print("total", total)
     return (list(negotiations), total)
 
 
@@ -44,6 +47,14 @@ def get_negotiation_membership_ids(username):
     Returns all rooms the user is apart of
     """
     negotiations = members_collection.find({"_id.username": username})
+    return [n["_id"]["room_id"] for n in list(negotiations)]
+
+
+def get_negotiation_representations_ids(username):
+    """
+    Returns all rooms the user is apart of
+    """
+    negotiations = members_collection.find({"represented_by": username})
     return [n["_id"]["room_id"] for n in list(negotiations)]
 
 
@@ -128,6 +139,7 @@ def save_negotiation(negotiation_type, privacy, payload):
             "_id": ObjectId(),
             "type": negotiation_type,
             "privacy": privacy,
+            "status": "active",
             "payload": map_payload(payload),
         }
     ).inserted_id
@@ -149,6 +161,7 @@ def save_member(
     username,
     added_by,
     location,
+    offer_id,
     broker_agreement="",
     represented_by="",
     is_admin=False,
@@ -160,6 +173,7 @@ def save_member(
             "added_by": added_by,
             "added_at": datetime.utcnow(),
             "location": location,
+            "offer_id": offer_id,
             "is_room_admin": is_admin,
             "broker_agreement": broker_agreement,
             "represented_by": represented_by,
@@ -176,6 +190,7 @@ def save_members(negotiation_id, negotiation_name, added_by, members):
             "added_by": added_by,
             "added_at": datetime.utcnow(),
             "location": member["location"],
+            "offer_id": member["offer_id"],
             "is_room_admin": False,
             "broker_agreement": "",
             "represented_by": "",
