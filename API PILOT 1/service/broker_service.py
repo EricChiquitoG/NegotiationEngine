@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from lib.errors import BrokerAgreementNotAuthorized, BrokerAgreementExpired
 
 import repository.broker_repository as broker_repository
@@ -119,8 +121,8 @@ def get_valid_agreement(agreement_id, username):
     return agreement
 
 
-def has_valid_contract(represented, represented_by):
-    pass
+def has_valid_contract(username, usernames):
+    return broker_repository.count_valid_agreements_between(username, usernames) > 0
 
 
 def check_broker_agreement(broker_agreement_id, username):

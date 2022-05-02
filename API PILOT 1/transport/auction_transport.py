@@ -32,7 +32,11 @@ def route_get_auction(auction_id):
     username = get_username(request)
     app.logger.info("%s requesting auction %s information", username, auction_id)
 
-    auction = get_auction(auction_id, username)
+    if request.args.get("is_broker"):
+        auction = get_auction(auction_id, username, is_broker=True)
+    else:
+        auction = get_auction(auction_id, username)
+
     auction = convert_auction(auction)
     return JSONEncoder().encode(auction), 200
 

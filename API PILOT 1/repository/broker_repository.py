@@ -5,6 +5,16 @@ from lib.mongo import broker_collection
 from lib.errors import BrokerAgreementNotFound
 
 
+def count_valid_agreements_between(username, usernames):
+    filter_by = {
+        "status": "accepted",
+        "end_date": {"$gte": datetime.utcnow()},
+        "representant": username,
+        "represented": {"$in": usernames},
+    }
+    return broker_collection.count_documents(filter_by)
+
+
 def get_agreement(agreement_id):
     result = broker_collection.find_one({"_id": ObjectId(agreement_id)})
     if result is None:

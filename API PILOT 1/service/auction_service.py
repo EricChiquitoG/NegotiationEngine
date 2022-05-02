@@ -24,7 +24,12 @@ from service.negotiation_service import (
     get_negotiations_representing,
     get_public_negotiations,
 )
-from service.broker_service import get_valid_agreement, has_valid_contract, check_broker_agreement
+from service.broker_service import (
+    get_valid_agreement,
+    has_valid_contract,
+    check_broker_agreement,
+    has_valid_contract,
+)
 from service.user_service import get_signature
 from service.contract_service import get_contract
 
@@ -42,21 +47,28 @@ from repository.auction_repository import update_auction_winner
 from db import sign_auction_contract2
 
 
-def get_member_usernames(auction):
-    return [member["_id"]["username"] for member in auction["members"]]
+def get_member_usernames(members, include_broker=True):
+    usernames = []
+    for member in members:
+        usernames.append(member["_id"]["username"])
+        if include_broker:
+            usernames.append(member["represented_by"])
+    return usernames
 
 
-def get_auction(auction_id, username):
-    (represented, represented_by) = detect_broker(auction_id, username)
-    if represented_by != "" and not has_valid_contract(represented, represented_by):
-        represented_by = ""
-
-    if get_member_in_negotiation(auction_id, username) is None:
-        raise NegotiationViewNotAuthorized
-
+def get_auction(auction_id, username, is_broker=False):
     auction = get_negotiation(
         auction_id, include_details=True, include_bids=True, include_members=True
     )
+
+    member_usernames = get_member_usernames(auction["members"])
+    if username not in member_usernames:
+        if is_broker:
+            # Check if the broker represents any of the members.
+            if not has_valid_contract(username, member_usernames):
+                raise NegotiationViewNotAuthorized
+        else:
+            raise NegotiationViewNotAuthorized
 
     if auction["payload"]["highest_bidder"]["val"][0] != "":
         # Auction has ended
@@ -261,9 +273,9 @@ def end_auction(auction_id, username, winner):
     if highest_bidder != "":
         raise AuctionHasWinner(auction_id)
 
-    # closing_time = auction["payload"]["closing_time"]["val"][0]
-    # if datetime.utcnow() <= closing_time:
-    #     raise AuctionNotEnded(auction_id)
+    closing_time = auction["payload"]["closing_time"]["val"][0]
+    if datetime.utcnow() <= closing_time:
+        raise AuctionNotEnded(auction_id)
 
     auction_type = auction["payload"]["auction_type"]["val"][0]
     bids = get_bids(auction_id, auction_type)
