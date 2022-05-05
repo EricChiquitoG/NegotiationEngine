@@ -126,6 +126,31 @@ class AuctionNotAdmin(NEUnauthorized):
 
 
 # -----------------------------------------------------------------------------
+# Negotiate
+# -----------------------------------------------------------------------------
+
+
+class NegotiateNotAuthorized(NEUnauthorized):
+    def __init__(self):
+        self.message = "Cannot access negotiation as user is not part of it"
+        self.code = 400
+
+
+class NegotiateAlreadyConcluded(NEBadRequest):
+    def __init__(self, negotiation_id):
+        self.message = "The negotiation {} has concluded no more offers can be made".format(
+            negotiation_id
+        )
+        self.code = 401
+
+
+class NegotiateWaitForCounterOffer(NEBadRequest):
+    def __init__(self, negotiation_id):
+        self.message = "Wait for the other peer to accept or counter offer"
+        self.code = 402
+
+
+# -----------------------------------------------------------------------------
 # Contracts
 # -----------------------------------------------------------------------------
 

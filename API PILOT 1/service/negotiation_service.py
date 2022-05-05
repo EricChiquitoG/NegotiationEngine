@@ -1,5 +1,17 @@
-from lib.errors import NegotiationNotFound
+from lib.errors import (
+    BrokerAlreadyExist,
+    CannotRepresentUserNotInAuction,
+    NegotiationViewNotAuthorized,
+    NegotiationNotFound,
+    NegotiationViewNotAuthorized,
+)
+
 import repository.negotiation_repository as negotiation_repository
+
+from service.broker_service import (
+    has_valid_contract,
+    check_broker_agreement,
+)
 
 
 def get_negotiation(
@@ -10,6 +22,27 @@ def get_negotiation(
         raise NegotiationNotFound
 
     negotiation = fill_details(negotiation, include_details, include_bids, include_members)
+    return negotiation
+
+
+def get_negotiaton_check_broker(
+    username,
+    negotiation_id,
+    is_broker=False,
+    include_details=False,
+    include_bids=False,
+    include_members=False,
+):
+    negotiation = get_negotiation(negotiation_id, include_details, include_bids, include_members)
+
+    member_usernames = get_member_usernames(negotiation["members"])
+    if username not in member_usernames:
+        if is_broker:
+            # Check if the broker represents any of the members.
+            if not has_valid_contract(username, member_usernames):
+                raise NegotiationViewNotAuthorized
+        else:
+            raise NegotiationViewNotAuthorized
     return negotiation
 
 
@@ -104,3 +137,27 @@ def detect_broker(negotiation_id, username):
     else:
         represented = member["_id"]["username"]
         return (represented, username)
+
+
+def get_member_usernames(members, include_broker=True):
+    usernames = []
+    for member in members:
+        usernames.append(member["_id"]["username"])
+        if include_broker:
+            usernames.append(member["represented_by"])
+    return usernames
+
+
+def represent_as_broker(negotiation, username, broker_agreement):
+    (username, represented_by) = check_broker_agreement(broker_agreement, username)
+
+    member = negotiation_repository.get_member_in_negotiation(negotiation, username)
+    if member is None:
+        raise CannotRepresentUserNotInAuction
+    if member["broker_agreement"] != "":
+        raise BrokerAlreadyExist
+
+    negotiation_repository.update_broker_for_member(
+        negotiation, username, broker_agreement, represented_by
+    )
+    return username

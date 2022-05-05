@@ -631,6 +631,25 @@ def sign_auction_contract2(auction, template):
 
     return create_contract2(template, values)
 
+
+
+def sign_negotiation_contract2(negotiation, template):
+    values = dict()
+    values["title"] = negotiation["payload"]["name"]["val"][0]
+    values["owner"] = negotiation["payload"]["created_by"]["val"][0]
+    values["buyer"] = negotiation["payload"]["seller"]["val"][0]
+    values["date"] = negotiation["payload"]["end_date"]["val"][0]
+    values["item"] = negotiation["payload"]["articleno"]["val"][0]
+    values["quantity"] = negotiation["payload"]["quantity"]["val"][0]
+    values["amount"] = negotiation["payload"]["current_offer"]["val"][0]
+    values["reference_sector"] = negotiation["payload"]["reference_sector"]["val"][0]
+    values["reference_type"] = negotiation["payload"]["reference_type"]["val"][0]
+    values["buyersign"] = negotiation["payload"]["buyersign"]["val"][0]
+    values["sellersign"] = negotiation["payload"]["sellersign"]["val"][0]
+    
+    return create_contract2(template, values)
+
+
 def sign_auction_contract(auction_id, contract_id):
     template = get_contract(contract_id)
     auction = get_room(auction_id)

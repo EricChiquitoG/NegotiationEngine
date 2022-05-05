@@ -37,3 +37,30 @@ def convert_auction(d):
             ret["bids"].append(b)
 
     return ret
+
+
+def convert_negotiation(d):
+    ret = dict()
+
+    for key in d:
+        if key not in ["payload", "members"]:
+            ret[key] = d[key]
+
+    for key in d["payload"]:
+        ret[key] = d["payload"][key]["val"][0]
+
+    if "members" in d:
+        ret["members"] = []
+        for member in d["members"]:
+            mem = dict()
+            mem["username"] = member["_id"]["username"]
+            mem["added_by"] = member["added_by"]
+            mem["added_at"] = member["added_at"]
+            mem["location"] = member["location"]
+            if "represented_by" in member:
+                mem["represented_by"] = member["represented_by"]
+            mem["is_room_admin"] = member["is_room_admin"]
+            mem["offer_id"] = member["offer_id"]
+            ret["members"].append(mem)
+
+    return ret

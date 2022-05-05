@@ -23,6 +23,7 @@ from service.negotiation_service import (
     get_negotiations,
     get_negotiations_representing,
     get_public_negotiations,
+    get_member_usernames,
 )
 from service.broker_service import (
     get_valid_agreement,
@@ -45,15 +46,6 @@ from repository.negotiation_repository import (
 )
 from repository.auction_repository import update_auction_winner
 from db import sign_auction_contract2
-
-
-def get_member_usernames(members, include_broker=True):
-    usernames = []
-    for member in members:
-        usernames.append(member["_id"]["username"])
-        if include_broker:
-            usernames.append(member["represented_by"])
-    return usernames
 
 
 def get_auction(auction_id, username, is_broker=False):

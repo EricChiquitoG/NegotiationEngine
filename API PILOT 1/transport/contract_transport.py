@@ -27,10 +27,10 @@ def route_list_contracts():
     """
     Returns a list of all contracts, containing only the id and the title.
     """
-    app.logger.info("list all contracts for purpose: {}", request.args.get("purpose"))
     purpose = request.args.get("purpose")
     if purpose is None:
         return {"message": "purpose must be passed as a parameter "}, 400
+    app.logger.info("list all contracts for purpose: %s", purpose)
 
     contracts = get_contracts(purpose)
     return JSONEncoder().encode(contracts), 200
