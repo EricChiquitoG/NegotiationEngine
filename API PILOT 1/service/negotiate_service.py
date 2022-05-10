@@ -54,7 +54,7 @@ def get_negotiations(username, broker_id, skip, limit):
     )
 
 
-def get_auction_representations(username, skip, limit):
+def get_negotiations_representations(username, skip, limit):
     return negotiation_service.get_negotiations_representing(
         username,
         "negotiation",

@@ -26,14 +26,19 @@ def route_negotiate_list():
     Gets a list of all the negotiations a user is part of.
     """
     username = get_username(request)
-    skip = int_or_default(request.args.get("skip"), 0)
-    limit = int_or_default(request.args.get("limit"), 20)
     broker_id = request.args.get("broker_id")
     broker_id = "" if broker_id is None else broker_id
 
+    skip = int_or_default(request.args.get("skip"), 0)
+    limit = int_or_default(request.args.get("limit"), 20)
     app.logger.info("%s requesting negotiation list, skip=%s, limit=%s", username, skip, limit)
 
-    (negotiations, total) = negotiate_service.get_negotiations(username, broker_id, skip, limit)
+    if request.args.get("representations"):
+        (negotiations, total) = negotiate_service.get_negotiations_representations(
+            username, skip, limit
+        )
+    else:
+        (negotiations, total) = negotiate_service.get_negotiations(username, broker_id, skip, limit)
 
     negotiations = [convert_negotiation(n) for n in negotiations]
     response = {
