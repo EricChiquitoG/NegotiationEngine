@@ -53,14 +53,15 @@ def get_auction(auction_id, username, is_broker=False):
         auction_id, include_details=True, include_bids=True, include_members=True
     )
 
-    member_usernames = get_member_usernames(auction["members"])
-    if username not in member_usernames:
-        if is_broker:
-            # Check if the broker represents any of the members.
-            if not has_valid_contract(username, member_usernames):
+    if auction["privacy"] != "public":
+        member_usernames = get_member_usernames(auction["members"])
+        if username not in member_usernames:
+            if is_broker:
+                # Check if the broker represents any of the members.
+                if not has_valid_contract(username, member_usernames):
+                    raise NegotiationViewNotAuthorized
+            else:
                 raise NegotiationViewNotAuthorized
-        else:
-            raise NegotiationViewNotAuthorized
 
     if auction["payload"]["highest_bidder"]["val"][0] != "":
         # Auction has ended
@@ -196,14 +197,14 @@ def join_auction(auction_id, username, location, broker_agreement):
     try:
         save_member(
             negotiation_id=auction_id,
+            negotiation_name=negotiation["payload"]["name"]["val"][0],
             username=username,
-            room_name=negotiation["payload"]["name"]["val"][0],
             added_by=username,
             location=location,
             offer_id="",
             broker_agreement=broker_agreement,
             represented_by=represented_by,
-            is_room_admin=False,
+            is_admin=False,
         )
     except DuplicateKeyError:
         raise AlreadyJoinedAuction
