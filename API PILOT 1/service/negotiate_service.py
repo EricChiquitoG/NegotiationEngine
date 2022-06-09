@@ -105,24 +105,20 @@ def create_negotiation(username, data):
 
     save_member(
         negotiation_id=negotiation_id,
-        negotiation_name=data["name"],
         username=username,
         added_by=username,
         location=data["location"],
         offer_id=data["offer_id"],
-        broker_agreement=data["broker_id"],
         represented_by=represented_by,
         is_admin=True,
     )
 
     save_member(
         negotiation_id=negotiation_id,
-        negotiation_name=data["name"],
         username=data["member"]["username"],
         added_by=username,
         location=data["member"]["location"],
         offer_id=data["member"]["offer_id"],
-        broker_agreement="",
         represented_by="",
         is_admin=False,
     )

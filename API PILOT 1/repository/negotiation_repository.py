@@ -15,7 +15,8 @@ NEGOTIATION_DESCENDING = "descending"
 
 def get_negotiation(negotiation_id):
     negotiation_id = ObjectId(negotiation_id)
-    return negotiation_collection.find_one({"_id": negotiation_id})
+    negotiation = negotiation_collection.find_one({"_id": negotiation_id})
+    return negotiation
 
 
 def get_negotiations(
@@ -157,42 +158,36 @@ def save_details(negotiation_id, negotiation_type, payload):
 
 def save_member(
     negotiation_id,
-    negotiation_name,
     username,
     added_by,
     location,
     offer_id,
-    broker_agreement="",
     represented_by="",
     is_admin=False,
 ):
     members_collection.insert_one(
         {
             "_id": {"room_id": ObjectId(negotiation_id), "username": username},
-            "room_name": negotiation_name,
             "added_by": added_by,
             "added_at": datetime.utcnow(),
             "location": location,
             "offer_id": offer_id,
             "is_room_admin": is_admin,
-            "broker_agreement": broker_agreement,
             "represented_by": represented_by,
         }
     )
     pass
 
 
-def save_members(negotiation_id, negotiation_name, added_by, members):
+def save_members(negotiation_id, added_by, members):
     members = [
         {
             "_id": {"room_id": ObjectId(negotiation_id), "username": member["username"]},
-            "room_name": negotiation_name,
             "added_by": added_by,
             "added_at": datetime.utcnow(),
             "location": member["location"],
             "offer_id": member["offer_id"],
             "is_room_admin": False,
-            "broker_agreement": "",
             "represented_by": "",
         }
         for member in members
@@ -201,9 +196,9 @@ def save_members(negotiation_id, negotiation_name, added_by, members):
     members_collection.insert_many(members)
 
 
-def update_broker_for_member(negotiation_id, username, broker_agreement_id, represented_by):
+def update_broker_for_member(negotiation_id, username, represented_by):
     filter_by = {"_id": {"room_id": ObjectId(negotiation_id), "username": username}}
-    update = {"$set": {"broker_agreement": broker_agreement_id, "represented_by": represented_by}}
+    update = {"$set": {"represented_by": represented_by}}
     members_collection.update_one(filter_by, update)
 
 

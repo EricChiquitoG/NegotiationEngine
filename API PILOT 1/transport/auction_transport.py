@@ -7,7 +7,6 @@ from lib.convert import convert_auction
 
 from service.auction_service import (
     create_auction,
-    end_auction,
     get_auction,
     get_auctions,
     get_auction_representations,
@@ -16,6 +15,7 @@ from service.auction_service import (
     join_auction,
     place_bid,
     represent_as_broker,
+    invite_to_auction,
 )
 
 
@@ -257,18 +257,34 @@ def route_auction_place_bid(auction_id):
     return {"message": "You have issued the bid {} to auction {}".format(bid, auction_id)}, 200
 
 
-auction_end_schema = {
+auction_invite_schema = {
     "type": "object",
-    "required": ["winner"],
-    "additionalProperties": False,
-    "properties": {"winner": {"type": "string"}},
+    "required": ["username", "location", "offer_id"],
+    "properties": {
+        "username": {"type": "string"},
+        "location": {
+            "type": "array",
+            "prefixItems": [
+                {"type": "number"},
+                {"type": "number"},
+            ],
+            "items": False,
+        },
+        "offer_id": {"type": "string"},
+    },
 }
 
 
-@app.route("/rooms/<auction_id>/end", methods=["POST"])
-@expects_json(auction_end_schema)
-def route_end_auction(auction_id):
+@app.route("/rooms/<auction_id>/invite", methods=["POST"])
+@expects_json(auction_invite_schema)
+def route_auction_invite(auction_id):
     username = get_username(request)
-    end_auction(auction_id, username, g.data["winner"])
+    app.logger.info("{} invites {} to auction {}".format(username, g.data["username"], auction_id))
+    invite_to_auction(auction_id, username, g.data)
 
-    return {"message": "winner has been selected"}, 200
+
+    response = {
+        "message": "You have invited user {} to auction {}".format(g.data["username"], auction_id),
+        "id": auction_id,
+    }
+    return JSONEncoder().encode(response), 200

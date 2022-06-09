@@ -48,9 +48,9 @@ class NegotiationNotFound(NENotFound):
         self.code = 200
 
 
-class AlreadyJoinedAuction(NEBadRequest):
+class NegotiationMemberAlreadyExists(NEBadRequest):
     def __init__(self):
-        self.message = "User has already joined negotiation"
+        self.message = "User already exists in negotiation"
         self.code = 201
 
 
@@ -123,6 +123,12 @@ class AuctionNotAdmin(NEUnauthorized):
     def __init__(self):
         self.message = "Must be creator to perform this action"
         self.code = 305
+
+
+class AuctionBidTooLow(NEUnauthorized):
+    def __init__(self):
+        self.message = "Bid must be better than current highest bid"
+        self.code = 306
 
 
 # -----------------------------------------------------------------------------
