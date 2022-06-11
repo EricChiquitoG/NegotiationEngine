@@ -51,7 +51,7 @@ def if_not_exists_create_initial_contracts():
 
     if get_contract_by_title(AUCTION_CONTRACT) is None:
         title = AUCTION_CONTRACT
-        template = "Hereby I $buyer, declare the purchase of $quantity units of $item for the ammount of $amount SEK on $date from $owner. \nBuyer signature $buyersign \nSeller signature $sellersign"
+        template = '<div><h1>Auction contract</h1><p>Hereby I $buyer, declare the purchase of $quantity units of $item for the amount of $amount SEK on $date from $owner.</p><h3>Signatures</h3><div class="d-flex row gap-2"><div>Buyer signature: <span class="badge bg-primary">$buyersign</span></div><div>Seller signature: <span class="badge bg-primary">$sellersign</span></div></div></div>'
         create_contract(title, USED_FOR_AUCTION, template)
 
 
