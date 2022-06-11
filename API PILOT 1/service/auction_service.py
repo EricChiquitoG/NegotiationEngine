@@ -290,7 +290,7 @@ def invite_to_auction(auction_id, username, new_member):
         raise AuctionNotAdmin
 
     # Ensure the new member isn't already part of the auction.
-    if not get_member_in_negotiation(auction_id, new_member["username"], include_brokers=True):
+    if get_member_in_negotiation(auction_id, new_member["username"], include_brokers=True):
         raise NegotiationMemberAlreadyExists
 
     save_member(
