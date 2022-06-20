@@ -99,7 +99,7 @@ def get_auctions(username, broker_id, skip, limit):
         username = agreement["represented"]
 
     sort_by = "payload.closing_time"
-    extra_filters = {"payload.closing_time.val.0": { "$gte": datetime.utcnow() } }
+    extra_filters = {"payload.closing_time.val.0": {"$gte": datetime.utcnow()}}
     return get_negotiations(
         username,
         "auction",
@@ -113,7 +113,7 @@ def get_auctions(username, broker_id, skip, limit):
 
 def get_auction_representations(username, skip, limit):
     sort_by = "payload.closing_time"
-    extra_filters = {"payload.closing_time.val.0": { "$gte": datetime.utcnow() } }
+    extra_filters = {"payload.closing_time.val.0": {"$gte": datetime.utcnow()}}
     return get_negotiations_representing(
         username,
         "auction",
@@ -130,7 +130,7 @@ def get_auctions_ended(username, broker_id, skip, limit):
         agreement = get_valid_agreement(broker_id)
         username = agreement["represented"]
 
-    extra_filters = {"payload.closing_time.val.0": { "$lt": datetime.utcnow() } }
+    extra_filters = {"payload.closing_time.val.0": {"$lt": datetime.utcnow()}}
     return get_negotiations(
         username,
         "auction",
@@ -249,14 +249,17 @@ def place_bid(auction_id, username, bid):
 
     if member["is_room_admin"]:
         raise AuctionCannotBidAsAdmin
-    
+
     # Only accept the bid if it becomes the new best bid. I.e. for
     # - Ascending: Must be higher.
     # - Descending: Must be lower.
-    type = auction["payload"]["auction_type"]["val"][0]
+    auction_type = auction["payload"]["auction_type"]["val"][0]
     highest_bid = auction["payload"]["highest_bid"]["val"][0]
-    if (type == "ascending" and bid <= highest_bid) or bid >= highest_bid:
-        raise AuctionBidTooLow
+    if highest_bid != 0:
+        if (auction_type == "ascending" and bid <= highest_bid) or (
+            auction_type != "ascending" and bid >= highest_bid
+        ):
+            raise AuctionBidTooLow
 
     source_location = auction["payload"]["location"]["val"][0]
     target_location = member["location"]
