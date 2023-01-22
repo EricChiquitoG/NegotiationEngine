@@ -56,6 +56,7 @@ create_negotiation_schema = {
         "offer_id",
         "bid",
         "quantity",
+        "unit",
         "member",
         "templatetype",
         "reference_sector",
@@ -76,6 +77,7 @@ create_negotiation_schema = {
         "offer_id": {"type": "string"},
         "bid": {"type": "number"},
         "quantity": {"type": "number"},
+        "unit": {"type": "string"},
         "member": {
             "type": "object",
             "required": ["username", "location", "offer_id"],

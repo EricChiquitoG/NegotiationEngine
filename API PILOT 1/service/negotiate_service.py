@@ -99,6 +99,7 @@ def create_negotiation(username, data):
             "reference_sector": data["reference_sector"],
             "reference_type": data["reference_type"],
             "quantity": data["quantity"],
+            "unit": data["unit"],
             "articleno": data["member"]["offer_id"],
         },
     )
