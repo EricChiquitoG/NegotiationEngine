@@ -182,6 +182,7 @@ def create_auction(username, data):
             "reference_sector": data["reference_sector"],
             "reference_type": data["reference_type"],
             "quantity": data["quantity"],
+            "unit": data["unit"],
             "articleno": data["offer_id"],
         },
     )

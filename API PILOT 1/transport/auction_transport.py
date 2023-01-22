@@ -115,6 +115,7 @@ create_auction_schema = {
         "reference_sector",
         "reference_type",
         "quantity",
+        "unit",
         "offer_id",
         "templatetype",
         "location",
@@ -130,6 +131,7 @@ create_auction_schema = {
         "reference_sector": {"type": "string"},
         "reference_type": {"type": "string"},
         "quantity": {"type": "number"},
+        "unit": {"type":"string"},
         "offer_id": {"type": "string"},
         "templatetype": {"type": "string"},
         "location": {
