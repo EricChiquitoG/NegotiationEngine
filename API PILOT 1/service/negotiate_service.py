@@ -126,7 +126,7 @@ def create_negotiation(username, data):
     return negotiation_id
 
 
-def validate_negotiate(negotiation_id, username):
+def validate_negotiate(negotiation_id, username, new_status):
     member = get_member_in_negotiation(negotiation_id, username, include_brokers=True)
     if member is None:
         raise NegotiateNotAuthorized
@@ -137,9 +137,10 @@ def validate_negotiate(negotiation_id, username):
     if status in ("accepted", "rejected"):
         raise NegotiateAlreadyConcluded(negotiation_id)
 
-    offer_user = negotiation["payload"]["offer_user"]["val"][0]
-    if username == offer_user:
-        raise NegotiateWaitForCounterOffer(negotiation_id)
+    if new_status != "rejected":
+        offer_user = negotiation["payload"]["offer_user"]["val"][0]
+        if username == offer_user:
+            raise NegotiateWaitForCounterOffer(negotiation_id)
 
     # Return username of participant, in-case the passed username is a broker.
     return (negotiation, member["_id"]["username"])
@@ -169,7 +170,7 @@ def place_bid(negotiation_id, username, bid):
 
 
 def handle_accept_reject(negotiation_id, username, new_status):
-    (negotiation, username) = validate_negotiate(negotiation_id, username)
+    (negotiation, username) = validate_negotiate(negotiation_id, username, new_status)
     negotiation_creator = negotiation["payload"]["created_by"]["val"][0]
     is_creator = negotiation_creator == username
 
