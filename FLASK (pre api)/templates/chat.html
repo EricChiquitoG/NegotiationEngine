@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Demand supply matching tool V1</title>
+</head>
+<body>
+<h1>Welcome to the auction room: {{ room }}</h1>
+<h2>Current highest bid: {{highest_bid}} SEK from {{highest_bidder}}  </h2>
+
+
+<div id="messages">
+    {% for message in messages %}
+        <div><b>{{ message.sender }}&nbsp;[{{ message.created_at }}]:&nbsp;</b> {{ message.text }}</div>
+    {% endfor %}
+</div>
+
+<form method="post">
+    <label>Enter your bid</label>
+    <input type="number" name="message_input" placeholder="bid here in SEK">
+    <button type="submit">Send</button>
+</form>
+
+<h3>Members</h3>
+<ul>
+    {% for member in room_members %}
+        <li>{{ member._id.username }}</li>
+    {% endfor %}
+</ul>
+
+
+</body>
+
+<script>
+    
+</script>
+</html>
