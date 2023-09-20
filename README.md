@@ -1,174 +1,966 @@
-# Negotiation Engine
-## First Iteration of REST API for the Negotation Engine for Demand supply matching system
-### by Eric Chiquito
+[Digiprime](https://www.digiprime.eu/) is an EU project for the circular economy. This project is part of it and offers the ability to perform negotiations and contract signing between different parties.
 
-This API is written in Python Flask. It is composed by various views and functions which will be explained for use and change in case is needed. All the work presented here is subject to change, either by adding elements or refining the program logic. MongoDB is used in this iteration for the Databases and storage of intermediate bids, the goal for the final product is create a distributed system.
+This work is an addition to the work alread performed in [Negotiation Engine](https://github.com/EricChiquitoG/NegotiationEngine), which we have forked and added our additions. As this is used by the related [Digiprime](https://github.com/norlen/NegotiationEngine) project, our additions have mainly been to support the functionality required there. Some of these include retreiving a more complete set of information for both auctions and negotiations and contract handling.
 
+All our additions have been contained inside the `API PILOT 1` project. For a more complete view of the project, view the original README located at [Negotiation Engine](https://github.com/EricChiquitoG/NegotiationEngine)
 
-## <span style="color:blue">Installation</span>
-1. [**Python FLASK**](https://flask.palletsprojects.com/en/2.0.x/)
-2. [**PyMongo**](https://pypi.org/project/pymongo/) 
-3. [Werkzeug](https://pypi.org/project/Werkzeug/)
-4. [Geopy](https://pypi.org/project/geopy/)
+## Getting started
 
-## How to run:
+Before getting started an environment variable that specifies the database address must be set. The easiest way is to create a `.env` file in the `API PILOT 1` folder containing
 
-The process to run the current API is very simple, once the above mentioned libraries are installed the only thing missing is run the **app.py** which will start the API in the localhost at port 5000, URL: http://127.0.0.1:5000´.
+```bash
+DATABASE_URL="mongodb://mongodb:27017/"
+```
 
-The API can be tested with [POSTMAN](https://www.postman.com/downloads/) as the examples shown below will illustrate, if you have doubts regarding how data should look, take a look at the following sections.
+### Container
 
-## Table of contents
-* [General Info](#general-info)
-* [Data Structure](#data_structure)
-  * [Users Database](#users-database)
-  * [Template Database](#template-database)
-  * [Auction Database](#auction-database)
-  * [Auction Details Database](#auction-details-database)
-  * [Room Members](#room-members)
-  * [Bid Database](#bid-database)
-* [Examples of use](#examples-of-use)
-  * [User Login](#user-login-POST)
-  * [Create Room](#create-room-POST)
-  * [Auction Query](#auction-query-GET)
-  * [Join Auction](#join-auction-GET)
-  * [Auction room](#auction-room-GET-POST)
-  * [Auction end](#auction-end-GET-POST)
-* [Limitations](#limitations)
+A dockerfile for the project exists under `API PILOT 1`, to run
 
-## General Info:
-The purpose of this API is to serve as the negotiation engine for the demand-supply matching of components and materials with an auctioning protocol.
-The system shall support the creation, bidding and winner selection for such auctions. In the following sections the data structure for the system along with the fuctionalities description and input requirements are presented.
+```bash
+docker build API\ PILOT\ 1 -t negotiation-engine    # build container
+docker run -p 5000:5000 negotiation-engine          # run container
+```
 
+### Without container
 
-## Data Structure:
-Reiterating what was stated above the data user for this particular iteration of the present implementation is mocked and it does not represent, by any means the final data structure.
+It can also be started right away
 
-### Users Database:
+```bash
+cd API\ PILOT\ 1/
+pip install
+python app.py
+```
 
-<img src="API PILOT 1/gitimages/db/users.PNG" width="50%" height="50%">
+### Other
 
-The user database used in this iteration presents the Email, username, password, signature, and location. Password and signature are hashed and location represents latitude and longitude.
+To run a container that also has [Digiprime](https://github.com/norlen/Digiprime) and a database set up. A ready-made container exists at [Docker Hub](https://hub.docker.com/r/norlen/digiprime), see the README there for instructions. To build the container see [digiprime-container](https://github.com/norlen/digiprime-container).
 
-### Template Database:
-<img src="API PILOT 1/gitimages/db/templates.PNG" width="100%" height="100%">
+## Usage
 
-The templates are used for the creation of the Ricardian contract which contains fields to be fields that will be filled once the winner has been selected and the auction is finished.
+### Auth
 
-### Auction Database:
+Most of the endpoints accept basic authorization with only the username. This is inherited from the parent project, and as a final method for authorization has not been given we continued to use this.
 
-<img src="API PILOT 1/gitimages/db/room.PNG" width="50%" height="50%">
+#### Signup
 
-This database contains information regarding the information regarding the creation of the auction and the information of both the auctioneer and the winner. This database feeds the template fields.
+To create a new account `POST` to `/signup` with a JSON body.
 
-### Auction Details Database:
+```json
+{
+  "username": "username",
+  "email": "user@example.invalid",
+  "password": "password"
+}
+```
 
-<img src="API PILOT 1/gitimages/db/roomd.PNG" width="33%" height="33%">
+<details>
+<summary>Example request</summary>
 
-This database is used to query the auctions, contains information about the details and are mostly inputed by the user. These does not feed the template.
+```bash
+curl --request POST \
+  --url http://localhost:5000/signup \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "username": "user",
+  "email": "user@example.invalid",
+  "password": "password"
+}
+'
+```
 
-### Room Members:
+</details>
 
-<img src="API PILOT 1/gitimages/db/members.PNG" width="40%" height="40%">
+<details>
+<summary>Example response</summary>
 
-The information of the members of each auction is contained within this database, it states wether the user is admin of such room or not.
+```json
+{
+  "message": "User created"
+}
+```
 
-### Bid Database:
+</details>
 
-<img src="API PILOT 1/gitimages/db/bids.PNG" width="50%" height="50%">
+### Auctions
 
-This database contains information of each bid on every room, contains information of the room, the user, the distance between the auction owner and the bidder.
+Operations exist to create auction, list current auctions for a user, and list all public auctions. For specific auctions users can place bids and end the auctions.
 
-## Examples of use:
-### User Login:
+All operations take requires the username to be passed in basic authentication.
 
-In this step of the implementation the need for a user login is not used it rather inherits the user that issues the request in the headers. This for the eventual incorporation to the GUI and the Identity and Access Managment tool. 
+#### Create an auction
 
-### Create room: POST
-Receives:
-* Room name (String)
-* Starting bid (int)
-* Auction type (String)
-* Closing time (Datetime) in the following format YYYY-MM-DDTHH:MM:SS
-* Reference sector (String)
-* Reference type (String)
-* Quantity (int)
-* Article number (String)
-* Members (String)
-* Template type (String)
+To create a new auction `POST` to `/create-room` with a form.
 
-<img src="API PILOT 1/gitimages/auction.PNG" width="66%" height="66%">
+Form fields
 
-With this request a new auction is created the specified data is used to fill the information that is going to be used to query the auctions as we will see in another section and carries the winner information as well.
+- `room_name`: Name of the auction.
+- `privacy`: If it is a `Public` or `Private` auction.
+- `auction_type`: `ascending` or `descending` auction.
+- `highest_bid`: not used, set to random value.
+- `closing_time`: Time when the auction closes for new bids, should be in [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) format.
+- `articleno`: Id of the offer to use in auction, or a list of ids if it is for a multiple offer auction.
+- `reference_sector`: Offer reference sector.
+- `reference_type`: Offer reference type.
+- `quantity`: Amount of offer to buy or sell.
+- `templatetype`: Contract to use.
+- `members`: Initial participant list, should be a comma separated list of usernames.
 
-### Auction Query: GET
+<details>
+<summary>Example request</summary>
 
-This GET request querys on existing auctions according any specified parameters such as:
-* room_name (string): In case a specific name for an auction want to be queried (later it will be added to contain the specified field not be exact as now)
-* reference_type (string): What element is being exchanged [Composites, mechatronics, electronics, textiles, batteries]
-* reference_sector (string): The type of the element being exhanged [Material, products, services].
-* articleno (string): The id of the element being exchanged
-* ongoing (bool): Ended auctions can be queried in case is desired (later the predetermined value will be set to true)
-* distance (int): Show auctions that are AT MOST the specified distance (later an interval will be used for better selection)
+```bash
+curl --request POST \
+  --url http://localhost:5000/create-room \
+  --header 'Authorization: Basic bm9ybGVuOg==' \
+  --header 'Content-Type: multipart/form-data; boundary=---011000010111000001101001' \
+  --form privacy=Private \
+  --form 'room_name=auction #1' \
+  --form highest_bid=0 \
+  --form auction_type=ascending \
+  --form closing_time=2020-01-19T14:00:00 \
+  --form reference_sector=composites \
+  --form reference_type=batteries \
+  --form quantity=100 \
+  --form articleno=61e7f7e20daf6671113c4941 \
+  --form templatetype=article \
+  --form members=Sebastian
+```
 
-<img src="API PILOT 1/gitimages/query.PNG" width="66%" height="66%">
+</details>
 
-In this example of a query the queried values where to find auction with distance of AT MOST 3000km from me and reference_sector of textiles.
-### Join auction: GET
+<details>
+<summary>Example response</summary>
 
-<img src="API PILOT 1/gitimages/join.PNG" width="66%" height="66%">
+```json
+{
+  "message": "The room auction #1 has been created id: 61e919468079384bfbaf7fb9"
+}
+```
 
-This request does not receive parameters but as seen above, the url contains the information of the auction room you want to join into.
-In case the user is already in the room the following message will be displayed.
-<img src="API PILOT 1/gitimages/join_al.PNG" width="66%" height="66%">
-
-### Auction room: GET, POST
- 
-GET: 
-<img src="API PILOT 1/gitimages/bids.PNG" width="66%" height="66%">
-
-When issuing a GET request all the bids in that auction will be displayed, only if the user is already a member of the auction.
-
-POST: 
-Receives: 
-* Bid (int)
-<img src="API PILOT 1/gitimages/bid.PNG" width="66%" height="66%">
-
-The request parameter issues a bid to the database than can be found later by the users.
-
-### Auction end: GET, POST
-
-POST: 
-Receives: 
-* Winner (String)
-In the present auction system the winner is not decided by an algorith, is up to the auctionner to decide who is the winner based on different parameters,
-The POST request parameters contain the winner username which will update the database and will fill the contract.
-If no winner has been selected the following message will be displayed.
-
-<img src="API PILOT 1/gitimages/winner.PNG" width="66%" height="66%">
-
-In case a winner has already been selected then the following message is shown.
-
-<img src="API PILOT 1/gitimages/winneralready.PNG" width="66%" height="66%">
+</details>
 
 
-GET: 
-When accessing this view multiple things will happen, if the auction hasn't ended and/or the user is not the winner or the owner, the best bid for each user according to price will be shown.
+#### List public auctions
 
-<img src="API PILOT 1/gitimages/hb.PNG" width="66%" height="66%">
+`GET` request to `/rooms/public` returns a list of all available public auctions.
 
-In the case the user is the owner of the auction or the winner then the ricardian contract with the winner and seller information will be shown as follows.
+<details>
+<summary>Example request</summary>
+
+```bash
+curl --request GET \
+  --url http://localhost:5000/rooms/public \
+  --header 'Authorization: Basic bm9ybGVuOg=='
+```
+
+</details>
+
+<details>
+<summary>Example response</summary>
+
+```json
+{
+  "rooms": [
+    {
+      "_id": "62036fb8ca7196f92ae2d39c",
+      "type": "auction",
+      "privacy": "Public",
+      "payload": {
+        "name": {
+          "val": [
+            "Selling batteries"
+          ]
+        },
+        "created_by": {
+          "val": [
+            "norlen"
+          ]
+        },
+        "created_at": {
+          "val": [
+            "2022-02-09T07:39:36.494000Z"
+          ]
+        },
+        "auction_type": {
+          "val": [
+            "Ascending"
+          ]
+        },
+        "highest_bid": {
+          "val": [
+            null
+          ]
+        },
+        "highest_bidder": {
+          "val": [
+            ""
+          ]
+        },
+        "closing_time": {
+          "val": [
+            "2022-02-24T00:39:00.000000Z"
+          ]
+        },
+        "sellersign": {
+          "val": [
+            "29f2a06bee0ef58efa052ceaf88f81eeab26e78207fefa5b34946d882c330189:b916efacee6a4e4ea958ebf79a05d03d"
+          ]
+        },
+        "buyersign": {
+          "val": [
+            ""
+          ]
+        },
+        "templatetype": {
+          "val": [
+            "article"
+          ]
+        },
+        "room_name": {
+          "val": [
+            "Selling batteries"
+          ]
+        },
+        "reference_sector": {
+          "val": [
+            "Batteries"
+          ]
+        },
+        "reference_type": {
+          "val": [
+            "Product"
+          ]
+        },
+        "quantity": {
+          "val": [
+            "1000"
+          ]
+        },
+        "articleno": {
+          "val": [
+            "6202b296f597322ebac72f34"
+          ]
+        }
+      }
+    }
+  ]
+}
+```
+
+</details>
+
+#### Get auction info
+
+`GET` request to `/rooms/<auctionId>/info` returns all information about a single auction.
+
+<details>
+<summary>Example request</summary>
+
+```bash
+curl --request GET \
+  --url http://localhost:5000/rooms/61f1405adf8681687161315f/info \
+  --header 'Authorization: Basic bm9ybGVuOg=='
+```
+
+</details>
+
+<details>
+<summary>Example response</summary>
+
+```json
+{
+  "_id": "61f1405adf8681687161315f",
+  "type": "auction",
+  "privacy": null,
+  "payload": {
+    "name": {
+      "val": [
+        "My auction"
+      ]
+    },
+    "created_by": {
+      "val": [
+        "norlen"
+      ]
+    },
+    "created_at": {
+      "val": [
+        "2022-01-26 12:36:42.642000"
+      ]
+    },
+    "auction_type": {
+      "val": [
+        "Ascending"
+      ]
+    },
+    "highest_bid": {
+      "val": [
+        null
+      ]
+    },
+    "highest_bidder": {
+      "val": [
+        ""
+      ]
+    },
+    "closing_time": {
+      "val": [
+        "2022-01-26 12:45:00"
+      ]
+    },
+    "sellersign": {
+      "val": [
+        "de66180cd5cc547e66bc4b5b5f71f3be48bca3e3db63292cd27ee53351413d20:a5c245dab60d46468d5f73151157c8e4"
+      ]
+    },
+    "buyersign": {
+      "val": [
+        ""
+      ]
+    },
+    "templatetype": {
+      "val": [
+        null
+      ]
+    },
+    "room_name": {
+      "val": [
+        "My auction"
+      ]
+    },
+    "reference_sector": {
+      "val": [
+        "Composites"
+      ]
+    },
+    "reference_type": {
+      "val": [
+        "Material"
+      ]
+    },
+    "quantity": {
+      "val": [
+        "123"
+      ]
+    },
+    "articleno": {
+      "val": [
+        "61f14055dbe7522f80ada197"
+      ]
+    }
+  },
+  "members": [
+    {
+      "_id": {
+        "room_id": "61f1405adf8681687161315f",
+        "username": "norlen"
+      },
+      "room_name": "My auction",
+      "added_by": "norlen",
+      "added_at": "2022-01-26 12:36:42.685000",
+      "is_room_admin": true
+    },
+    {
+      "_id": {
+        "room_id": "61f1405adf8681687161315f",
+        "username": "norlen1"
+      },
+      "room_name": "My auction",
+      "added_by": "norlen",
+      "added_at": "2022-01-26 12:36:42.763000",
+      "is_room_admin": false
+    }
+  ],
+  "bids": [
+    {
+      "text": "5000",
+      "sender": "norlen1",
+      "created_at": "2022-01-26 12:37:06.495000",
+      "distance": 277.4200024628344,
+      "sign": "e7f8ae46a72e2bca1098d5df01e45a7ed2969ca965ac07bd02200fdca75f653f:0989548859f84d90895826c21495d5fb"
+    }
+  ]
+}
+```
+
+</details>
 
 
-<img src="API PILOT 1/gitimages/contract.PNG" width="66%" height="66%">
+#### Get all auctions
 
-If no winner has been selected by the time the GET request is processed an error message is displayed.
+`GET` request to `/room/all` returns a list of all auctions the user is participating in.
 
-<img src="API PILOT 1/gitimages/nowinner.PNG" width="66%" height="66%">
+<details>
+<summary>Example request</summary>
 
-## Limitations:
+```bash
+curl --request GET \
+  --url http://localhost:5000/rooms/all \
+  --header 'Authorization: Basic U2ViYXN0aWFuOg=='
+```
 
-The system is very sensitive regarding the data inputs and outputs specifically in dates and location.
+</details>
 
-Location is a tuple that consist in both longitude and latitude, if the user is created by any other means that by hand the location data can lead to distance computing errors
+<details>
+<summary>Example response</summary>
 
-Dates shall be inputed in the specified format, the format used is the HTML datetime format which may be similar to the frontend to this project you may desire to use, bear that in mind.
+```json
+[
+  {
+    "_id": "6202b373a10ca517c592e275",
+    "type": "auction",
+    "privacy": "Private",
+    "payload": {
+      "name": {
+        "val": [
+          "Buy batteries #0"
+        ]
+      },
+      "created_by": {
+        "val": [
+          "norlen"
+        ]
+      },
+      "created_at": {
+        "val": [
+          "2022-02-08T18:16:19.944000Z"
+        ]
+      },
+      "auction_type": {
+        "val": [
+          "Descending"
+        ]
+      },
+      "highest_bid": {
+        "val": [
+          "100"
+        ]
+      },
+      "highest_bidder": {
+        "val": [
+          "Sebastian"
+        ]
+      },
+      "closing_time": {
+        "val": [
+          "2022-02-08T18:27:00.000000Z"
+        ]
+      },
+      "sellersign": {
+        "val": [
+          "29f2a06bee0ef58efa052ceaf88f81eeab26e78207fefa5b34946d882c330189:b916efacee6a4e4ea958ebf79a05d03d"
+        ]
+      },
+      "buyersign": {
+        "val": [
+          "b6b31762d313de53105810478cd5965bc34d444fe62b10d875eff11e1e853599:eb8631b00bb34a1899877022bdfceeb1"
+        ]
+      },
+      "templatetype": {
+        "val": [
+          "article"
+        ]
+      },
+      "room_name": {
+        "val": [
+          "Buy batteries #0"
+        ]
+      },
+      "reference_sector": {
+        "val": [
+          "Batteries"
+        ]
+      },
+      "reference_type": {
+        "val": [
+          "Product"
+        ]
+      },
+      "quantity": {
+        "val": [
+          "1000"
+        ]
+      },
+      "articleno": {
+        "val": [
+          "6202b2f6f597322ebac72f59,6202b335f597322ebac72f72"
+        ]
+      }
+    },
+    "bids": [
+      {
+        "text": "100",
+        "sender": "Sebastian",
+        "created_at": "2022-02-08T18:16:28.409000Z",
+        "distance": 796.1446685405374,
+        "sign": "b6b31762d313de53105810478cd5965bc34d444fe62b10d875eff11e1e853599:eb8631b00bb34a1899877022bdfceeb1"
+      }
+    ]
+  }
+]
+```
+
+</details>
+
+
+#### Get all bids for a specific auction
+
+Send a `GET` request to `/rooms/<auctionId>` to return a list of all the bids that have been placed at that auction.
+
+<details>
+<summary>Example request</summary>
+
+```bash
+curl --request GET \
+  --url http://localhost:5000/rooms/61f1405adf8681687161315f \
+  --header 'Authorization: Basic bm9ybGVuOg=='
+```
+
+</details>
+
+<details>
+<summary>Example response</summary>
+
+```json
+{
+  "Bids": [
+    {
+      "created_at": {
+        "val": [
+          "26 Jan, 12:37:02"
+        ]
+      },
+      "distance": {
+        "val": [
+          277.4200024628344
+        ]
+      },
+      "sender": {
+        "val": [
+          "Sebastian"
+        ]
+      },
+      "text": {
+        "val": [
+          "4000"
+        ]
+      }
+    },
+  ]
+}
+```
+
+</details>
+
+
+#### Place bid at an auction
+
+To place a bid at an auction send a `POST` request to `/rooms/<auctionId>` with a form containing
+
+- `message_input`: Amount to bid.
+
+<details>
+<summary>Example request</summary>
+
+```bash
+curl --request POST \
+  --url http://localhost:5000/rooms/61f14d9fdf86816871613166 \
+  --header 'Authorization: Basic bm9ybGVuMTo=' \
+  --header 'Content-Type: multipart/form-data; boundary=---011000010111000001101001' \
+  --form message_input=6000
+```
+
+</details>
+
+<details>
+<summary>Example response</summary>
+
+```json
+{
+  "message": "You have issued the bid 6000"
+}
+```
+
+</details>
+
+
+#### Select a winner at an auction
+
+When the closing time has passed, the auction can be ended. To end an auction send a `POST` request to `/rooms/<auctionId>/end` with a form containing
+
+- `winner`: The username of the selected winner.
+
+<details>
+<summary>Example request</summary>
+
+```bash
+curl --request POST \
+  --url http://localhost:5000/rooms/61f11f9d9ee8fd4bf299a367/end \
+  --header 'Authorization: Basic bm9ybGVuNTo=' \
+  --header 'Content-Type: multipart/form-data; boundary=---011000010111000001101001' \
+  --form winner=Sebastian
+```
+
+</details>
+
+<details>
+<summary>Example response</summary>
+
+```json
+{
+  "message": "winner has been selected"
+}
+```
+
+</details>
+
+
+### Negotiations
+
+The API allows to create, list, get a single negotiations. For a negotiation you can bid, accept or reject.
+
+The status field in the response can be one of
+
+- `submitted`: no bids have been placed
+- `offer`: the creator placed the last bid.
+- `counter-offer`: the other party placed the last bid.
+- `accepted`: if the negotiation has been accepted.
+- `rejected`: if the negotiation has been rejected.
+
+#### Create negotiation
+
+`POST` request to `/negotiate` containing a form body to create a new negotiation.
+
+Form fields
+
+- `price`: Starting price of the negotiation.
+- `seller`: The oppsing party.
+- `articleno`: Id of the offer this negotiation uses.
+- `reference_sector`: Offer reference sector.
+- `reference-type`: Offer reference type.
+- `quantity`: Amount of the offer to negotiate about.
+- `templatetype`: Contract to use.
+
+<details>
+<summary>Example request</summary>
+
+```bash
+curl --request POST \
+  --url http://localhost:5000/negotiate \
+  --header 'Authorization: Basic bm9ybGVuOg==' \
+  --header 'Content-Type: multipart/form-data; boundary=---011000010111000001101001' \
+  --form 'room_name=negotiation #1' \
+  --form price=1000 \
+  --form seller=Sebastian \
+  --form reference_sector=Batteries \
+  --form reference_type=Material \
+  --form quantity=100 \
+  --form articleno=620618063593f61446de42f6 \
+  --form templatetype=article
+```
+
+</details>
+
+<details>
+<summary>Example response</summary>
+
+```json
+{
+  "message": "The negotiation with id 6214de1683a1bdd717642654 has been created"
+}
+```
+
+</details>
+
+
+#### Get negotiation
+
+Send a `GET` request to `/negotiation/<negotiationId>/full` to get complete information about a negotiation. This requires the user to be part of the negotiation.
+
+<details>
+<summary>Example request</summary>
+
+```bash
+curl --request GET \
+  --url http://localhost:5000/negotiate/6214dd9dc6800c95ee2c0d45 \
+  --header 'Authorization: Basic bm9ybGVuOg=='
+```
+
+</details>
+
+<details>
+<summary>Example response</summary>
+
+```json
+{
+  "_id": "6214dd9dc6800c95ee2c0d45",
+  "name": "negotiation #1",
+  "created_by": "norlen",
+  "seller": "Sebastian",
+  "created_at": "2022-02-22T12:57:01.147000Z",
+  "end_date": "2022-02-25T06:40:07.154000Z",
+  "current_offer": "1000",
+  "offer_user": "norlen",
+  "status": "rejected",
+  "reference_sector": "Batteries",
+  "reference_type": "Material",
+  "quantity": "100",
+  "articleno": "620618063593f61446de42f6",
+  "contract": ""
+}
+```
+
+</details>
+
+
+#### List all negotiations
+
+Send a `GET` request to `/negotiate/list` to return a list of all the negotiations the user is part of.
+
+<details>
+<summary>Example request</summary>
+
+```bash
+curl --request GET \
+  --url http://localhost:5000/negotiate/list \
+  --header 'Authorization: Basic bm9ybGVuOg=='
+```
+
+</details>
+
+<details>
+<summary>Example response</summary>
+
+```json
+[
+  {
+    "_id": "6214d8edc6800c95ee2c0d33",
+    "name": "negotiation #1",
+    "created_by": "norlen",
+    "seller": "Sebastian",
+    "created_at": "2022-02-22T12:37:01.900000Z",
+    "end_date": "2022-02-22T12:50:37.573000Z",
+    "current_offer": "1000",
+    "offer_user": "Sebastian",
+    "status": "accepted"
+  },
+]
+```
+
+</details>
+
+
+#### Bid on negotiation
+
+Send a `POST` request to `negotiate/<negotiationId>` with a form body to place a bid in a negotiation.
+
+Form fields
+
+- `bid`: the new bid to place.
+
+<details>
+<summary>Example request</summary>
+
+```bash
+curl --request POST \
+  --url http://localhost:5000/negotiate/6214d8edc6800c95ee2c0d33 \
+  --header 'Authorization: Basic U2ViYXN0aWFuOg==' \
+  --header 'Content-Type: multipart/form-data; boundary=---011000010111000001101001' \
+  --form bid=1000
+```
+
+</details>
+
+<details>
+<summary>Example response</summary>
+
+```json
+{
+  "message": "New offer submited for request with id 6214d8edc6800c95ee2c0d33"
+}
+```
+
+</details>
+
+
+#### Accept offer in negotiation
+
+If the opposing party in a negotiation has placed the last bid, the other participant can accept the offer.
+
+Send a `GET` request to `negotiate/<negotiationId>/accept` to accept the negotiation.
+
+<details>
+<summary>Example request</summary>
+
+```bash
+curl --request GET \
+  --url http://localhost:5000/negotiate/6214d8edc6800c95ee2c0d33/accept \
+  --header 'Authorization: Basic U2ViYXN0aWFuOg=='
+```
+
+</details>
+
+<details>
+<summary>Example response</summary>
+
+```json
+{
+  "message": "The negotiation with id 6214d8edc6800c95ee2c0d33 has been accepted."
+}
+```
+
+</details>
+
+
+#### Reject offer in negotiation
+
+If the opposing party in a negotiation has placed the last bid, the other participant can reject the offer.
+
+Send a `GET` request to `negotiate/<negotiationId>/cancel` to cancel a negotiation.
+
+<details>
+<summary>Example request</summary>
+
+```bash
+curl --request GET \
+  --url http://localhost:5000/negotiate/6214d8edc6800c95ee2c0d33/cancel \
+  --header 'Authorization: Basic U2ViYXN0aWFuOg=='
+```
+
+</details>
+
+<details>
+<summary>Example response</summary>
+
+```json
+{
+  "message": "The negotiation with id 6214d8edc6800c95ee2c0d33 has been rejected."
+}
+```
+
+</details>
+
+
+### Contracts
+
+Support has been added for a more complete handling of contracts. With support for adding, getting, and listing.
+
+Contract bodies can contain certain template parameters which will be substitued in during the signing process, these are specified by using `$key`.
+
+
+#### Create contract
+
+`POST` request to `contracts/create` with a JSON body containing
+
+```json
+{
+  "title": "",
+  "body": ""
+}
+```
+
+to create a single contract.
+
+<details>
+<summary>Example request</summary>
+
+```bash
+curl --request POST \
+  --url http://localhost:5000/contracts/create \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "title": "article",
+  "body": "details"
+}'
+```
+
+</details>
+
+<details>
+<summary>Example response</summary>
+
+```json
+{
+  "id": "6214ea9ad6db7bca66de2c3a",
+  "message": "successfully created contract"
+}
+```
+
+</details>
+
+
+#### Get contract
+
+`GET` request to `contracts/<contractId>` to get information about a single contract.
+
+<details>
+<summary>Example request</summary>
+
+```bash
+curl --request GET \
+  --url http://localhost:5000/contracts/6214ea9ad6db7bca66de2c3a
+```
+
+</details>
+
+<details>
+<summary>Example response</summary>
+
+```json
+{
+  "_id": "6214ea9ad6db7bca66de2c3a",
+  "title": "article",
+  "body": "details"
+}
+```
+
+</details>
+
+
+#### List contracts
+
+`GET` request to `contracts/list` to list all the available contracts.
+
+<details>
+<summary>Example request</summary>
+
+```bash
+curl --request GET \
+  --url http://localhost:5000/contracts/list
+```
+
+</details>
+
+<details>
+<summary>Example response</summary>
+
+```json
+[
+  {
+    "_id": "6214ea9ad6db7bca66de2c3a",
+    "title": "article",
+    "body": "details"
+  }
+]
+```
+
+</details>
+
+
+## Additions
+
+### Auctions
+
+Most of the auction functionality is from the original project, we have mostly added endpoints to retrieve information. Examples include getting the full information about an auction, and listing the user's current auctions, and listing all the public auctions.
+
+### Negotiations
+
+For negotiations most of the endpoints are from the original project as well. Here we also mostly added endpoints to get the full information about a negotiation.
+
+### Contracts
+
+No endpoints for contracts existed. We added functionality to create new contracts, get a single contract, and list all the available contracts.
+
+### Other
+
+Most of the work we have done have been fixing minor bugs. We also changed all the time handling to only use UTC time, and to return timezone information.
