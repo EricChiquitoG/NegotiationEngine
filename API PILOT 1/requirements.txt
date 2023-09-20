@@ -7,4 +7,3 @@ Werkzeug==2.0.1
 dnspython
 python-dotenv
 python-dateutil
-flask_expects_json
