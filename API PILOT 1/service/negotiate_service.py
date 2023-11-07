@@ -147,13 +147,12 @@ def validate_negotiate(negotiation_id, username, new_status):
 
 
 def place_bid(negotiation_id, username, bid):
-    (negotiation, username) = validate_negotiate(negotiation_id, username)
+    (negotiation, username) = validate_negotiate(negotiation_id, username, "test")
 
     locations = []
     for member in negotiation["members"]:
         locations.append(member["location"])
     distance = get_distance(locations[0], locations[1])
-
     user_signature = get_signature(username)
     save_bid(
         negotiation_type="negotiation",
